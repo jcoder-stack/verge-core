@@ -4,6 +4,17 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 const yaml = require("js-yaml");
+const vm = require("node:vm");
+
+function vmRunHook(script, params) {
+  const sandbox = { params, module: { exports: {} }, exports: {}, console };
+  vm.createContext(sandbox);
+  vm.runInContext(
+    `${script}\n;if (typeof main === 'function') { params = main(params) || params; }`,
+    sandbox, { timeout: 3000 }
+  );
+  return sandbox.params;
+}
 
 const { tryDecodeSubscription, summarize } = require("../lib/subscription");
 const { buildYaml, buildAIRuleLine, HttpError } = require("../lib/generate-yaml");
@@ -185,4 +196,25 @@ test("buildOverrideScript: aiExitGroup 运行时创建总出口组（直连+住�
   const g = out["proxy-groups"].find((x) => x.name === "AI 总出口");
   assert.ok(g, "总出口组运行时已建");
   assert.deepEqual(g.proxies, ["直连住宅", "住宅节点"]);
+});
+
+// ------- generate-yaml.js: buildYaml + runHook 注入 -------
+
+test("buildYaml: 注入 runHook，extensionScript 修改 params", () => {
+  const outYaml = buildYaml(
+    { srcYaml: baseYaml(), extensionScript: "function main(p){ p.__hooked = true; return p; }" },
+    { runHook: vmRunHook }
+  );
+  const out = yaml.load(outYaml);
+  assert.strictEqual(out.__hooked, true, "runHook 被调用且修改了 params");
+});
+
+test("buildYaml: 缺少 runHook 且有 extensionScript 抛 HttpError(422)", () => {
+  assert.throws(
+    () => buildYaml(
+      { srcYaml: baseYaml(), extensionScript: "function main(p){return p;}" },
+      {}
+    ),
+    (e) => e instanceof HttpError && e.status === 422
+  );
 });
