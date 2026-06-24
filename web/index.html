@@ -266,6 +266,23 @@ GEOSITE,category-ntp</textarea>
       </div>
       <div class="status" id="genStatus">等待生成…</div>
       <div class="hint" style="margin-top:10px">选中节点统计：<span id="selCount">0</span></div>
+      <details id="importHelp" style="margin-top:12px">
+        <summary style="cursor:pointer;font-weight:600;color:#cbd5e1">📖 如何导入 Clash Verge（两种方式）</summary>
+        <div class="hint" style="margin-top:8px">
+          <strong>方式一 · 文件模式</strong>（对应「完整 YAML」）<br />
+          生成后点<strong>下载</strong>得到配置文件 → 在 Clash Verge 直接导入该文件即可。<br />
+          <span style="color:#f59e0b">⚠️ 缺点：订阅节点更新后，需要重新生成并重新导入文件，不方便。</span>
+          <hr style="border:none;border-top:1px solid #2a3142;margin:10px 0" />
+          <strong>方式二 · 脚本扩展方式（推荐）</strong>（对应「JS 覆写脚本」）
+          <ol style="margin:6px 0 0;padding-left:18px;line-height:1.7">
+            <li>把「输出格式」选成 <code>JS 覆写脚本</code>，点<strong>生成</strong>，再点<strong>复制</strong>拿到脚本代码；</li>
+            <li>在 Clash Verge 里先<strong>导入你的订阅</strong>；</li>
+            <li>在该订阅上点<strong>右键</strong> → 选择<strong>「扩展脚本」</strong>；</li>
+            <li>把复制的扩展脚本代码<strong>填入</strong> → <strong>保存</strong>即可。</li>
+          </ol>
+          <span style="color:#34d399">✅ 优点：订阅节点更新后自动重算，无需每次重做。</span>
+        </div>
+      </details>
     </div>
   </section>
 
