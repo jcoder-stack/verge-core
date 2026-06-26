@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Verge 覆写生成器</title>
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<header>
+  <h1>Verge 覆写生成器 <span class="sub">— 解析订阅 · 选择中转节点 · 生成新 YAML</span></h1>
+  <div class="sub" id="nodeInfo">未加载</div>
+</header>
+
+<main>
+  <section>
+    <h2>1. 输入订阅</h2>
+    <div class="body">
+      <div class="tabs">
+        <button class="active" data-tab="url">订阅 URL</button>
+        <button data-tab="file">上传 YAML</button>
+        <button data-tab="paste">粘贴 YAML</button>
+      </div>
+
+      <div class="tab-panel" data-panel="url">
+        <label>订阅地址（Clash / YAML）</label>
+        <div class="row">
+          <input type="url" id="subUrl" placeholder="https://example.com/sub?token=..." />
+          <button id="btnFetch">拉取</button>
+        </div>
+        <div class="hint">由本地 Node 后端代理拉取，绕过浏览器 CORS。</div>
+      </div>
+
+      <div class="tab-panel" data-panel="file" style="display:none">
+        <label>选择本地 YAML 文件</label>
+        <input type="file" id="subFile" accept=".yml,.yaml,.txt" />
+      </div>
+
+      <div class="tab-panel" data-panel="paste" style="display:none">
+        <label>粘贴 YAML 内容</label>
+        <textarea id="subPaste" rows="8" placeholder="proxies: ..."></textarea>
+        <div class="row" style="margin-top:8px">
+          <button id="btnParse">解析</button>
+        </div>
+      </div>
+
+      <div class="status" id="inputStatus">等待输入…</div>
+
+      <h2 class="sep">2. 高速中转分组</h2>
+      <div style="padding-top:12px">
+        <label>分组名</label>
+        <input type="text" id="relayName" value="高速中转" />
+
+        <label style="margin-top:10px">分组类型</label>
+        <select id="relayType">
+          <option value="select">select（手动切换）</option>
+          <option value="url-test">url-test（自动测速）</option>
+        </select>
+
+        <label style="margin-top:10px">勾选作为中转候选的节点</label>
+        <div class="toolbar">
+          <button class="secondary" id="selAll">全选</button>
+          <button class="secondary" id="selNone">清空</button>
+          <button class="secondary" id="selPremium">仅选[专线]</button>
+          <input type="text" id="nodeFilter" placeholder="关键字过滤…" style="flex:1" />
+        </div>
+        <div class="node-list" id="nodeList"><div class="empty">请先加载订阅</div></div>
+
+        <label style="margin-top:14px">住宅静态 IP（每行一条，会挂 dialer-proxy → 上面分组）</label>
+        <div class="row" style="margin-bottom:6px">
+          <div style="flex:2">
+            <label>格式</label>
+            <select id="residentialFormat" title="格式">
+              <option value="host_port_user_pass">hostname:port:username:password</option>
+              <option value="user_pass_host_port">username:password:hostname:port</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label>类型</label>
+            <select id="residentialType" title="类型">
+              <option value="socks5">socks5</option>
+              <option value="http">http</option>
+            </select>
+          </div>
+          <div style="flex:1.5">
+            <label>名称前缀</label>
+            <input type="text" id="residentialPrefix" value="住宅" title="名称前缀：单行时节点名=前缀本身；多行时=前缀-序号" />
+          </div>
+          <div style="flex:1.5">
+            <label>分组名</label>
+            <input type="text" id="residentialGroup" value="住宅节点" title="住宅节点 select 分组名。出口目标填这个分组名即可在分组内切换具体节点。" />
+          </div>
+        </div>
+        <textarea id="residentialLines" rows="4" placeholder="us.srp.b2proxy.com:30000:USER835900-ip-208.107.4.223:87bf49&#10;# 或显式命名：&#10;美国住宅A|us.srp.b2proxy.com:30000:user:pass"></textarea>
+        <div class="hint">
+          节点命名规则：<br />
+          - <strong>单行</strong>：节点名 = <code>前缀</code> 本身（默认 <code>住宅</code>）<br />
+          - <strong>多行</strong>：节点名 = <code>前缀-序号</code>（如 <code>住宅-1</code>、<code>住宅-2</code>）<br />
+          - <strong>显式命名</strong>：行首加 <code>name|</code>，如 <code>美国静态住宅-B2proxy|host:port:user:pass</code><br />
+          UDP 默认开启。
+        </div>
+
+        <details>
+          <summary>高级：直接用 JSON 数组（优先级高于上面的行输入）</summary>
+          <label style="margin-top:8px">JSON 数组（留空=不新增）</label>
+          <textarea id="residentialsJson" rows="5" placeholder='[{"name":"美国静态住宅-B2proxy","type":"socks5","server":"us.srp.b2proxy.com","port":30000,"username":"...","password":"...","udp":true}]'></textarea>
+        </details>
+
+        <h2 class="sep">2.5 直连住宅订阅（无需中转）</h2>
+        <div style="padding-top:12px" id="directResSection">
+          <div class="dtabs">
+            <button type="button" class="active" data-dtab="url">订阅 URL</button>
+            <button type="button" data-dtab="paste">粘贴 YAML</button>
+          </div>
+          <div class="dtab-panel" data-dpanel="url">
+            <label>住宅订阅地址（独立于主订阅）</label>
+            <div class="row">
+              <input type="url" id="dresUrl" placeholder="https://example.com/residential-sub" />
+              <button id="btnDresFetch">拉取</button>
+            </div>
+            <div class="hint">由本地后端代理拉取，与上方主订阅互不影响。</div>
+          </div>
+          <div class="dtab-panel" data-dpanel="paste" style="display:none">
+            <label>粘贴住宅 YAML</label>
+            <textarea id="dresPaste" rows="6" placeholder="proxies:&#10;  - name: ...&#10;    type: vless&#10;    ..."></textarea>
+            <div class="row" style="margin-top:8px"><button id="btnDresParse">解析</button></div>
+          </div>
+
+          <label style="margin-top:10px">分组名</label>
+          <input type="text" id="directResidentialGroup" value="直连住宅" title="直连住宅 select 分组名。可填进 AI 出口目标 / 端口映射目标，在分组内切换具体节点。" />
+
+          <label style="margin-top:10px">勾选要直连的节点（完整代理，原样注入、不挂中转）</label>
+          <div class="toolbar">
+            <button class="secondary" id="dresSelAll">全选</button>
+            <button class="secondary" id="dresSelNone">清空</button>
+            <input type="text" id="dresFilter" placeholder="关键字过滤…" style="flex:1" />
+          </div>
+          <div class="node-list" id="dresList"><div class="empty">请先拉取/解析住宅订阅</div></div>
+          <div class="status" id="dresStatus">等待住宅订阅…</div>
+        </div>
+
+        <h2 class="sep">3. AI / Claude 出口规则</h2>
+        <div style="padding-top:12px">
+          <label>出口目标（从下拉按标签选；走直连填 <code>直连住宅</code>，走中转填 <code>住宅节点</code>，或填具体节点名钉死出口）</label>
+          <input type="text" id="aiTarget" list="targetOptions" placeholder="从下拉选：[直连组] 直连住宅 / [住宅组] 住宅节点 / [直连] 具体节点…" />
+          <p class="hint" style="margin-top:4px">
+            <strong>直连</strong>：填 <code>直连住宅</code>（分组）或 <code>[直连]</code> 具体节点 → AI 直接从美国住宅出，不经中转。<strong>需先在「2.5 直连住宅订阅」勾选节点</strong>，否则下拉里不会出现。<br />
+            <strong>中转</strong>：填 <code>住宅节点</code>（分组）→ 在分组内切换 proxywing1/2/… 改变出口 IP；填具体节点名则钉死到该节点。
+          </p>
+
+          <label class="ck" style="margin-top:10px">
+            <input type="checkbox" id="aiExitGroupEnabled" />
+            生成「AI 总出口」开关组（把 直连住宅 + 住宅节点 打包；AI 指向它即可在客户端一键切 直连/中转）
+          </label>
+          <div class="row" style="margin-top:6px">
+            <input type="text" id="aiExitGroupName" value="AI 总出口" placeholder="AI 总出口" title="AI 总出口开关组名" />
+          </div>
+          <div class="hint">勾选后把上面的「出口目标」选成 <code>AI 总出口</code>。组内成员：<strong>直连住宅</strong>（默认）/ <strong>住宅节点</strong>，在客户端该组里切换即可在直连↔中转间换。只有当至少有一个直连或中转住宅时才会生成。</div>
+
+          <label style="margin-top:10px">AI 规则列表（每行一条，支持完整 Clash 规则前缀；裸域名默认按 <code>DOMAIN-SUFFIX</code> 处理）</label>
+          <textarea id="aiDomains" rows="18" title="AI 规则列表"># 核心域名（DOMAIN-SUFFIX 已覆盖所有 *.anthropic.com 子域名）
+DOMAIN-SUFFIX,anthropic.com
+DOMAIN-SUFFIX,claude.ai
+DOMAIN-SUFFIX,claude.com
+DOMAIN-SUFFIX,clau.de
+DOMAIN-SUFFIX,claudemcpclient.com
+DOMAIN-SUFFIX,claudemcpcontent.com
+DOMAIN-SUFFIX,claudeusercontent.com
+GEOSITE,anthropic
+
+# CDN 和静态资源
+DOMAIN,servd-anthropic-website.b-cdn.net
+DOMAIN,anthropic.com.cdn.cloudflare.net
+
+# 认证 / 内容
+DOMAIN,anthropic.auth0.com
+DOMAIN,anthropic-com.ghost.io
+
+# 监控和遥测
+DOMAIN-SUFFIX,sentry.io
+DOMAIN-SUFFIX,statsigapi.net
+DOMAIN,browser-intake-us5-datadoghq.com
+DOMAIN-KEYWORD,datadog
+DOMAIN-KEYWORD,sentry
+DOMAIN-KEYWORD,sift
+
+# 客服 / 第三方 widget
+DOMAIN-SUFFIX,intercom.io
+DOMAIN-SUFFIX,intercomcdn.com
+DOMAIN,cdn.usefathom.com
+
+# IP 段 / ASN 兜底
+IP-CIDR,160.79.104.0/21,no-resolve
+IP-CIDR6,2607:6bc0::/32,no-resolve
+IP-ASN,399358,no-resolve
+
+# 时间同步（避免本地时钟偏差导致鉴权失败）
+GEOSITE,category-ntp</textarea>
+          <div class="hint">支持：<code>DOMAIN</code> / <code>DOMAIN-SUFFIX</code> / <code>DOMAIN-KEYWORD</code> / <code>IP-CIDR</code> / <code>IP-CIDR6</code> / <code>IP-ASN</code> 等；末尾修饰符（如 <code>no-resolve</code>）会被保留。目标名由生成器自动插入到 <code>matcher</code> 之后。</div>
+
+          <label style="margin-top:10px">AI 规则集（rule-providers，每行一个 URL 或 <code>name|url|behavior|interval</code>）</label>
+          <textarea id="aiProviders" rows="3" placeholder="https://zcom.static.moe233.org/rule-set/qwbm/AI_No_Resolve.yaml&#10;AI_No_Resolve|https://example.com/ai.yaml|classical|259200">AI_No_Resolve|https://zcom.static.moe233.org/rule-set/qwbm/AI_No_Resolve.yaml|classical|259200</textarea>
+          <div class="hint">会生成 <code>rule-providers</code> 条目并前置 <code>RULE-SET,&lt;name&gt;,&lt;target&gt;</code> 规则。behavior 默认 <code>classical</code>，interval 默认 <code>259200</code>(3天)，type 固定 <code>http</code>。留空=不生成。</div>
+
+          <label class="ck" style="margin-top:10px">
+            <input type="checkbox" id="dnsAntiLeak" checked />
+            DNS 防泄漏（fake-ip + 全加密 DoH + respect-rules + sniffer）
+          </label>
+          <div class="hint">所有 DNS 走加密 DoH + fake-ip，从根源防止 DNS 泄漏。参考 <a href="https://github.com/qichiyuhub/rule/blob/main/config/mihomo/configdns.yaml" target="_blank" rel="noopener">七尺鱼 DNS 防泄漏方案</a>。推荐开启。境外 DNS 同时使用 8.8.8.8 + 1.1.1.1 双 DoH 上游并发，单点抖动时无感切换。</div>
+
+          <label class="ck" style="margin-top:8px;margin-left:18px">
+            <input type="checkbox" id="dnsLan" />
+            作为 LAN DNS 服务器开放给其他设备（监听 0.0.0.0:1053）
+          </label>
+          <div class="hint" style="margin-left:18px">默认只监听 <code>127.0.0.1:1053</code>，仅本机使用，防止同网段他人蹭用或反查你的 DNS 记录。仅当你想让家里其他设备/软路由把 DNS 指向这台机器时勾选。</div>
+
+          <label class="ck" style="margin-top:8px;margin-left:18px">
+            <input type="checkbox" id="dnsTun" />
+            同时启用 TUN 模式 + DNS 劫持（推荐，但需额外授权）
+          </label>
+          <div class="hint" style="margin-left:18px">不开 TUN 时，系统级应用（CLI、Docker、未走代理的 App）的 DNS 仍可能绕过本配置直接问运营商 → 防泄漏只能"半生效"。开启后会强制 <code>tun.enable: true / dns-hijack: any:53</code>，全系统 DNS 都被劫持到 1053。<strong>首次启用需管理员授权</strong>（macOS 需允许系统扩展、Windows 安装 wintun），且可能与企业 VPN / Docker 网络冲突，按需勾选。</div>
+        </div>
+
+        <details>
+          <summary>高级：特定端口代理入口（指纹浏览器 → 最终出口节点）</summary>
+          <div class="hint" style="margin:6px 0">
+            <strong>目标应填住宅节点名（最终出口），不要填中转分组</strong>——中转组只是 dialer-proxy 跳板。<br />
+            例：AdsPower 连 <code>socks://127.0.0.1:1080</code> → 目标填 <code>美国静态住宅-B2proxy</code> 或 <code>住宅-1</code>。
+          </div>
+          <datalist id="targetOptions"></datalist>
+          <div id="portMappings"></div>
+          <button class="secondary" id="btnAddPort" style="margin-top:6px">+ 添加端口映射</button>
+        </details>
+
+        <details id="hookPanel">
+          <summary>高级：用户自定义扩展 Hook（可选，main(params) 形式，会串联到输出末尾）</summary>
+          <textarea id="extScript" rows="6" placeholder="function main(params) { /* ... */ return params; }"></textarea>
+          <div class="hint">
+            此处不是最终输出，而是**追加**到生成结果上的自定义变换 hook。<br />
+            YAML 输出：在服务端 vm 沙箱中执行；<br />
+            JS 输出：原样嵌入到生成脚本末尾（IIFE 隔离，内部可自定义一个 main 函数）。
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 生成</h2>
+    <div class="body">
+      <label>输出格式</label>
+      <select id="outputFormat" title="输出格式">
+        <option value="yaml">完整 YAML（合并源订阅，导入为 Profile / Merge 覆写）</option>
+        <option value="script">JS 覆写脚本（导入为 Clash Verge Script 类型覆写，体积小、订阅更新自动重算）</option>
+      </select>
+      <div class="hint" style="margin:4px 0 10px">
+        <strong>YAML</strong>：一次性生成完整代理配置，导入后即独立运行，不依赖原订阅。<br />
+        <strong>JS 脚本</strong>：只封装变换逻辑，挂在原订阅上，订阅更新后变换自动重新生效；推荐。
+      </div>
+      <button id="btnGen" disabled>生成</button>
+      <button class="secondary" id="btnDownload" disabled>下载</button>
+      <button class="secondary" id="btnCopy" disabled>复制</button>
+      <button class="secondary" id="btnExportClashMi" disabled title="生成 ClashMi 兼容的完整 YAML 并直接下载">Export for ClashMi</button>
+      <div class="hint" style="margin-top:6px">
+        <strong>Export for ClashMi</strong>：一键生成 ClashMi（mihomo 内核）兼容的完整 YAML 并下载，文件名 <code>clashmi-config-*.yml</code>。无需先点"生成"。
+      </div>
+      <div class="status" id="genStatus">等待生成…</div>
+      <div class="hint" style="margin-top:10px">选中节点统计：<span id="selCount">0</span></div>
+      <details id="importHelp" style="margin-top:12px">
+        <summary style="cursor:pointer;font-weight:600;color:#cbd5e1">📖 如何导入 Clash Verge（两种方式）</summary>
+        <div class="hint" style="margin-top:8px">
+          <strong>方式一 · 文件模式</strong>（对应「完整 YAML」）<br />
+          生成后点<strong>下载</strong>得到配置文件 → 在 Clash Verge「订阅」页点<strong>新建</strong>，类型选 <code>Local</code>，上传该 yml 文件即可。<br />
+          <span style="color:#f59e0b">⚠️ 缺点：订阅节点更新后，需要重新生成并重新导入文件，不方便。</span>
+          <img src="images/file-options.png" alt="Clash Verge 新建 Local 配置并上传工具生成的 yml" style="display:block;max-width:100%;margin:8px 0;border:1px solid #2a3142;border-radius:6px" />
+          <hr style="border:none;border-top:1px solid #2a3142;margin:10px 0" />
+          <strong>方式二 · 脚本扩展方式（推荐）</strong>（对应「JS 覆写脚本」）
+          <ol style="margin:6px 0 0;padding-left:18px;line-height:1.7">
+            <li>把「输出格式」选成 <code>JS 覆写脚本</code>，点<strong>生成</strong>，再点<strong>复制</strong>拿到脚本代码；</li>
+            <li>在 Clash Verge 里先<strong>导入你的订阅</strong>；</li>
+            <li>在该订阅上点<strong>右键</strong> → 选择<strong>「扩展脚本」</strong>；</li>
+            <li>把复制的扩展脚本代码<strong>填入</strong> → <strong>保存</strong>即可。</li>
+          </ol>
+          <img src="images/script-options.png" alt="订阅右键菜单选择「扩展脚本」" style="display:block;max-width:300px;width:100%;margin:8px 0;border:1px solid #2a3142;border-radius:6px" />
+          <span style="color:#34d399">✅ 优点：订阅节点更新后自动重算，无需每次重做。</span>
+          <hr style="border:none;border-top:1px solid #2a3142;margin:10px 0" />
+          <strong>导入后效果</strong>
+          <img src="images/result-1.png" alt="生成的代理分组：高速中转 / 住宅节点 / AI 总出口" style="display:block;max-width:100%;margin:8px 0 2px;border:1px solid #2a3142;border-radius:6px" />
+          <div style="color:#94a3b8;margin-bottom:8px">▲ 自动生成的分组：高速中转 / 住宅节点 / AI 总出口</div>
+          <img src="images/result-2.png" alt="claude.ai 经 AI 总出口 → 住宅节点 → USA-ISP2 出站" style="display:block;max-width:100%;margin:8px 0 2px;border:1px solid #2a3142;border-radius:6px" />
+          <div style="color:#94a3b8">▲ AI 流量（claude.ai）实际经 AI 总出口 → 住宅节点 → USA-ISP2 出站</div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 输出预览</h2>
+    <pre class="out" id="outYaml">（生成后显示）</pre>
+  </section>
+</main>
+
+<script src="transport.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

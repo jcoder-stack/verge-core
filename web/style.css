@@ -1,0 +1,61 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; background: #0f1117; color: #e5e7eb; }
+header { padding: 14px 22px; border-bottom: 1px solid #1f2430; display: flex; align-items: center; justify-content: space-between; }
+header h1 { font-size: 15px; margin: 0; color: #f3f4f6; font-weight: 600; }
+header .sub { font-size: 12px; color: #8b93a7; font-weight: 400; }
+
+main { display: grid; grid-template-columns: 400px 1fr 1fr; gap: 14px; padding: 14px; height: calc(100vh - 52px); }
+section { background: #161a24; border: 1px solid #1f2430; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+section > h2 { margin: 0; padding: 10px 14px; font-size: 13px; font-weight: 600; color: #cbd5e1; border-bottom: 1px solid #1f2430; background: #1a1f2b; }
+section > h2.sep { margin: 18px -14px 0; border-top: 1px solid #1f2430; }
+section > .body { padding: 12px 14px; overflow: auto; flex: 1; }
+
+label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+input[type=text], input[type=url], input[type=file], textarea, select {
+  width: 100%; background: #0f1117; border: 1px solid #2a3142; color: #e5e7eb;
+  border-radius: 5px; padding: 7px 9px; font-size: 12px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+button { background: #2563eb; color: white; border: none; border-radius: 5px; padding: 7px 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
+button:hover { background: #1d4ed8; }
+button.secondary { background: #374151; }
+button.secondary:hover { background: #4b5563; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.row > * { flex: 1; }
+.row > button { flex: 0 0 auto; }
+
+.node-list { border: 1px solid #2a3142; border-radius: 5px; max-height: 340px; overflow: auto; background: #0f1117; }
+.node-list .empty { padding: 14px; color: #64748b; font-size: 12px; }
+.node-item { padding: 5px 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; border-bottom: 1px solid #1a1f2b; cursor: pointer; user-select: none; }
+.node-item:hover { background: #1a1f2b; }
+.node-item:last-child { border-bottom: none; }
+.node-item input[type=checkbox] { flex: 0 0 auto; cursor: pointer; }
+.node-item .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-item .type { font-size: 10px; padding: 1px 6px; border-radius: 3px; background: #374151; color: #d1d5db; flex: 0 0 auto; }
+
+.toolbar { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.toolbar button { font-size: 11px; padding: 4px 8px; }
+.toolbar input { flex: 1; min-width: 120px; }
+
+.hint { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.5; }
+.status { font-size: 11px; padding: 6px 10px; border-radius: 4px; background: #1a1f2b; color: #94a3b8; margin-top: 8px; white-space: pre-wrap; word-break: break-all; }
+.status.err { background: #3a1a1a; color: #fca5a5; }
+.status.ok { background: #0f2a1a; color: #6ee7b7; }
+
+pre.out { margin: 0; padding: 12px; background: #0a0c12; color: #d1d5db; font-size: 11px; line-height: 1.55; font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; height: 100%; overflow: auto; }
+
+.tabs { display: flex; gap: 2px; margin-bottom: 10px; }
+.tabs button { flex: 1; background: #1a1f2b; color: #94a3b8; border-radius: 5px 5px 0 0; padding: 6px; font-weight: 400; }
+.tabs button.active { background: #2a3142; color: #f3f4f6; }
+
+.dtabs { display: flex; gap: 2px; margin-bottom: 10px; }
+.dtabs button { flex: 1; background: #1a1f2b; color: #94a3b8; border-radius: 5px 5px 0 0; padding: 6px; font-weight: 400; }
+.dtabs button.active { background: #2a3142; color: #f3f4f6; }
+
+details { margin-top: 10px; border: 1px solid #2a3142; border-radius: 5px; padding: 6px 10px; background: #0f1117; }
+details summary { font-size: 12px; color: #cbd5e1; cursor: pointer; outline: none; }
+details[open] summary { margin-bottom: 8px; }

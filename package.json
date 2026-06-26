@@ -1,0 +1,9 @@
+{
+  "name": "verge-core",
+  "version": "0.1.0",
+  "description": "Clash Verge 覆写生成器同构核心",
+  "main": "index.js",
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "js-yaml": "^4.1.0" }
+}
