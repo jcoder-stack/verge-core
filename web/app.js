@@ -343,16 +343,6 @@ function collectGeneratePayload() {
       };
     })
     .filter((p) => p.name && /^https?:\/\//.test(p.url));
-  // AI 总出口开关组（启用时）。你为 AI 建了这个组，AI 规则就默认走它，
-  // 不必再单独填「出口目标」——出口目标优先用手填的，没填则回退到这个组。
-  const aiExitGroup = ($("aiExitGroupEnabled") && $("aiExitGroupEnabled").checked)
-    ? ($("aiExitGroupName").value.trim() || "AI 总出口")
-    : "";
-  const aiTargetFinal = aiTarget || aiExitGroup;
-  const aiRules =
-    aiTargetFinal && (aiDomains.length > 0 || aiProviders.length > 0)
-      ? { target: aiTargetFinal, domains: aiDomains, providers: aiProviders }
-      : null;
 
   // 4) 特定端口代理入口
   const portMappings = state.portRows
@@ -365,11 +355,32 @@ function collectGeneratePayload() {
     .filter(Boolean);
   const directResidentialGroup = $("directResidentialGroup").value.trim() || "直连住宅";
 
-  // 6) AI 总出口开关组成员校验（aiExitGroup 已在上面 AI 规则处定义）
-  // 启用了总出口组但没有任何成员（直连未勾选 + 无中转住宅）→ 明确报错，避免“勾了却没生成”的静默丢弃
-  if (aiExitGroup && directResidentials.length === 0 && residentials.length === 0) {
-    return { error: "已勾选「生成 AI 总出口开关组」，但没有任何成员：请在「2.5 直连住宅订阅」勾选直连节点，或在上方添加中转住宅，再生成。" };
+  // 6) AI 出口目标回退链：手填 → AI 总出口组 → 直连住宅 → 住宅节点。
+  // 放在这里是因为回退链要用到上面刚算出的 directResidentials。
+  const aiExitGroup = ($("aiExitGroupEnabled") && $("aiExitGroupEnabled").checked)
+    ? ($("aiExitGroupName").value.trim() || "AI 总出口")
+    : "";
+  const resolveTarget = window.VergeTransport && window.VergeTransport.resolveAITarget;
+  const aiTargetFinal = resolveTarget
+    ? resolveTarget({
+        aiTarget,
+        aiExitGroupEnabled: !!aiExitGroup,
+        aiExitGroupName: aiExitGroup,
+        residentialGroup: residentialGroupName(),
+        directResidentialGroup,
+        hasResidentials: residentials.length > 0,
+        hasDirectResidentials: directResidentials.length > 0,
+      })
+    : (aiTarget || aiExitGroup);
+
+  const hasAIRules = aiDomains.length > 0 || aiProviders.length > 0;
+  // 有规则却无处可去 → 明确报错。这是原先规则被静默丢弃的那条路径。
+  if (hasAIRules && !aiTargetFinal) {
+    return { error: "填写了 AI 规则，但没有任何可用的出口目标：请在「2.5 直连住宅订阅」勾选直连节点，或在上方添加中转住宅，再生成。" };
   }
+  const aiRules = hasAIRules
+    ? { target: aiTargetFinal, domains: aiDomains, providers: aiProviders }
+    : null;
 
   // 中转可选：只有存在 socks5/http 住宅（需 dialer-proxy）时才强制要求中转
   if (residentials.length > 0 && selected.length === 0) {
