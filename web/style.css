@@ -45,6 +45,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .status { font-size: 11px; padding: 6px 10px; border-radius: 4px; background: #1a1f2b; color: #94a3b8; margin-top: 8px; white-space: pre-wrap; word-break: break-all; }
 .status.err { background: #3a1a1a; color: #fca5a5; }
 .status.ok { background: #0f2a1a; color: #6ee7b7; }
+.status.warn { background: #3a2f1a; color: #fcd34d; }
 
 pre.out { margin: 0; padding: 12px; background: #0a0c12; color: #d1d5db; font-size: 11px; line-height: 1.55; font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; height: 100%; overflow: auto; }
 

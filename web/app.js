@@ -355,31 +355,14 @@ function collectGeneratePayload() {
     .filter(Boolean);
   const directResidentialGroup = $("directResidentialGroup").value.trim() || "直连住宅";
 
-  // 6) AI 出口目标回退链：手填 → AI 总出口组 → 直连住宅 → 住宅节点。
-  // 放在这里是因为回退链要用到上面刚算出的 directResidentials。
+  // 6) AI 规则原样收集：出口目标的回退链解析在生成入口（服务端/localGenerate）完成。
+  // 此处不解析、不拦截 —— aiDomains 出厂预填，据其阻断生成会误伤「只用中转、不要住宅」的正当配置。
   const aiExitGroup = ($("aiExitGroupEnabled") && $("aiExitGroupEnabled").checked)
     ? ($("aiExitGroupName").value.trim() || "AI 总出口")
     : "";
-  const resolveTarget = window.VergeTransport && window.VergeTransport.resolveAITarget;
-  const aiTargetFinal = resolveTarget
-    ? resolveTarget({
-        aiTarget,
-        aiExitGroupEnabled: !!aiExitGroup,
-        aiExitGroupName: aiExitGroup,
-        residentialGroup: residentialGroupName(),
-        directResidentialGroup,
-        hasResidentials: residentials.length > 0,
-        hasDirectResidentials: directResidentials.length > 0,
-      })
-    : (aiTarget || aiExitGroup);
-
   const hasAIRules = aiDomains.length > 0 || aiProviders.length > 0;
-  // 有规则却无处可去 → 明确报错。这是原先规则被静默丢弃的那条路径。
-  if (hasAIRules && !aiTargetFinal) {
-    return { error: "填写了 AI 规则，但没有任何可用的出口目标：请在「2.5 直连住宅订阅」勾选直连节点，或在上方添加中转住宅，再生成。" };
-  }
   const aiRules = hasAIRules
-    ? { target: aiTargetFinal, domains: aiDomains, providers: aiProviders }
+    ? { target: aiTarget, domains: aiDomains, providers: aiProviders }
     : null;
 
   // 中转可选：只有存在 socks5/http 住宅（需 dialer-proxy）时才强制要求中转
@@ -425,7 +408,8 @@ $("btnGen").addEventListener("click", async () => {
     state.outYaml = out;
     state.outFormat = format;
     $("outYaml").textContent = out;
-    setStatus("genStatus", `生成成功 [${format}] (${out.length} 字节)`, "ok");
+    const notices = (data.notices || []).join("；");
+    setStatus("genStatus", `生成成功 [${format}] (${out.length} 字节)` + (notices ? ` —— ${notices}` : ""), notices ? "warn" : "ok");
     $("btnDownload").disabled = false;
     $("btnCopy").disabled = false;
   } catch (e) {
@@ -458,7 +442,8 @@ $("btnExportClashMi").addEventListener("click", async () => {
     a.click();
     URL.revokeObjectURL(url);
 
-    setStatus("genStatus", `已导出 ClashMi YAML (${out.length} 字节)`, "ok");
+    const notices = (data.notices || []).join("；");
+    setStatus("genStatus", `已导出 ClashMi YAML (${out.length} 字节)` + (notices ? ` —— ${notices}` : ""), notices ? "warn" : "ok");
   } catch (e) {
     setStatus("genStatus", "导出失败: " + e.message, "err");
   }
