@@ -218,3 +218,43 @@ test("buildYaml: 缺少 runHook 且有 extensionScript 抛 HttpError(422)", () =
     (e) => e instanceof HttpError && e.status === 422
   );
 });
+
+// ---- DNS 防泄漏：两条输出路径必须产出同一份 dns 配置 ----
+// 该配置在 generate-yaml.js 与 generate-script.js 各有一份（孪生实现），
+// 极易改一处漏一处，故用产出比对钉住，而非靠人眼比源码。
+
+function dnsOpts(over) {
+  return { relay: { name: "高速中转", type: "select", proxies: ["vps1"] }, dnsAntiLeak: true, ...over };
+}
+
+test("buildYaml: DNS 防泄漏含内联 fake-ip-filter 兜底（规则集拉取失败时不致内网全被 fake-ip）", () => {
+  const out = yaml.load(buildYaml({ ...dnsOpts(), srcYaml: baseYaml() }, {}));
+  const f = out.dns["fake-ip-filter"];
+  assert.ok(f.includes("rule-set:fakeipfilter_domain"), "保留远程规则集");
+  // 内核默认列表被覆盖后，这些必须由内联兜底补回
+  ["localhost", "+.lan", "+.msftconnecttest.com", "+.in-addr.arpa"].forEach((d) => {
+    assert.ok(f.includes(d), `兜底缺少 ${d}`);
+  });
+});
+
+test("buildYaml: DNS 防泄漏同时关闭顶层 ipv6（dns.ipv6 只管 AAAA 应答，拦不住 IPv6 拨号）", () => {
+  const out = yaml.load(buildYaml({ ...dnsOpts(), srcYaml: baseYaml() }, {}));
+  assert.strictEqual(out.dns.ipv6, false, "dns.ipv6");
+  assert.strictEqual(out.ipv6, false, "顶层 ipv6");
+});
+
+test("DNS 防泄漏：YAML 与 Script 两条路径产出的 dns 段逐字一致", () => {
+  const y = yaml.load(buildYaml({ ...dnsOpts(), srcYaml: baseYaml() }, {}));
+  const s = vmRunHook(buildOverrideScript(dnsOpts()), yaml.load(baseYaml()));
+  // Script 路径的对象在 vm 沙箱内创建，属另一个 realm，原型不同一 —— deepStrictEqual
+  // 会因此对结构相同的对象判不等。故先经 JSON 归一化，只比结构。
+  const plain = (o) => JSON.parse(JSON.stringify(o));
+  assert.deepStrictEqual(plain(s.dns), plain(y.dns), "两版 dns 段已走样");
+  assert.strictEqual(s.ipv6, y.ipv6, "两版顶层 ipv6 已走样");
+});
+
+test("未启用 DNS 防泄漏时不注入 dns，也不动顶层 ipv6", () => {
+  const out = yaml.load(buildYaml({ ...dnsOpts({ dnsAntiLeak: false }), srcYaml: baseYaml() }, {}));
+  assert.strictEqual(out.dns, undefined);
+  assert.strictEqual(out.ipv6, undefined);
+});

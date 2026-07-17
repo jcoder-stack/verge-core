@@ -206,7 +206,7 @@ GEOSITE,category-ntp</textarea>
             <input type="checkbox" id="dnsAntiLeak" checked />
             DNS 防泄漏（fake-ip + 全加密 DoH + respect-rules + sniffer）
           </label>
-          <div class="hint">所有 DNS 走加密 DoH + fake-ip，从根源防止 DNS 泄漏。参考 <a href="https://github.com/qichiyuhub/rule/blob/main/config/mihomo/configdns.yaml" target="_blank" rel="noopener">七尺鱼 DNS 防泄漏方案</a>。推荐开启。境外 DNS 同时使用 8.8.8.8 + 1.1.1.1 双 DoH 上游并发，单点抖动时无感切换。</div>
+          <div class="hint">所有 DNS 走加密 DoH + fake-ip，从根源防止 DNS 泄漏。参考 <a href="https://github.com/qichiyuhub/rule/blob/main/config/mihomo/configdns.yaml" target="_blank" rel="noopener">七尺鱼 DNS 防泄漏方案</a>。推荐开启。境外 DNS 同时使用 8.8.8.8 + 1.1.1.1 双 DoH 上游并发，单点抖动时无感切换。<br /><strong>范围说明</strong>：运营商看不到你的查询内容。但<strong>代理服务器自身的域名</strong>必须先解析才能连上代理，这一步走阿里/腾讯 DoH 直连（不受 <code>respect-rules</code> 影响），故国内 DNS 服务商能看到你在解析哪些代理域名——这是先有鸡先有蛋的必然，无法消除。</div>
 
           <label class="ck" style="margin-top:8px;margin-left:18px">
             <input type="checkbox" id="dnsLan" />
@@ -218,7 +218,7 @@ GEOSITE,category-ntp</textarea>
             <input type="checkbox" id="dnsTun" />
             同时启用 TUN 模式 + DNS 劫持（推荐，但需额外授权）
           </label>
-          <div class="hint" style="margin-left:18px">不开 TUN 时，系统级应用（CLI、Docker、未走代理的 App）的 DNS 仍可能绕过本配置直接问运营商 → 防泄漏只能"半生效"。开启后会强制 <code>tun.enable: true / dns-hijack: any:53</code>，全系统 DNS 都被劫持到 1053。<strong>首次启用需管理员授权</strong>（macOS 需允许系统扩展、Windows 安装 wintun），且可能与企业 VPN / Docker 网络冲突，按需勾选。</div>
+          <div class="hint" style="margin-left:18px">不开 TUN 时，系统级应用（CLI、Docker、未走代理的 App）的 DNS 仍可能绕过本配置直接问运营商 → 防泄漏只能"半生效"（<strong>经代理的流量不受影响，仍然防住</strong>）。勾选后会在配置里写入 <code>tun.enable: true / dns-hijack: any:53 / auto-route: true</code>。<br /><strong>⚠️ Clash Verge 用户请注意</strong>：Verge 会用它自己「TUN 设置」里的值<strong>覆盖</strong>本配置的整个 <code>tun</code> 块，<code>tun.enable</code> 更是直接跟随 GUI 的 TUN 开关。<strong>所以在 Verge 里勾选本项并不会开启 TUN，你仍需去 Verge 界面自行打开</strong>（首次需管理员授权：macOS 允许系统扩展、Windows 安装 wintun）。本项写入的 tun 块只对<strong>自行管理 TUN 的宿主</strong>（ClashMi、裸 mihomo 内核）直接生效。TUN 可能与企业 VPN / Docker 网络冲突，按需使用。</div>
         </div>
 
         <details>
