@@ -155,7 +155,7 @@
           <div class="row" style="margin-top:6px">
             <input type="text" id="aiExitGroupName" value="AI 总出口" placeholder="AI 总出口" title="AI 总出口开关组名" />
           </div>
-          <div class="hint">默认勾选。上面的「出口目标」留空即自动走本组；组内成员：<strong>直连住宅</strong>（默认）/ <strong>住宅节点</strong>，在客户端该组里切换即可在直连↔中转间换。只有当至少有一个直连或中转住宅时才会生成本组；若未勾选本组，AI 规则会自动回退到已配置的那一种住宅出口（两种住宅都没有时会直接报错）。</div>
+          <div class="hint">默认勾选。上面的「出口目标」留空即自动走本组；组内成员：<strong>直连住宅</strong>（默认）/ <strong>住宅节点</strong>，在客户端该组里切换即可在直连↔中转间换。只有当至少有一个直连或中转住宅时才会生成本组；若未勾选本组，AI 规则会自动回退到已配置的那一种住宅出口。两种住宅都没有时，AI 规则不写入，生成仍会成功并给出提示。</div>
 
           <label style="margin-top:10px">AI 规则列表（每行一条，支持完整 Clash 规则前缀；裸域名默认按 <code>DOMAIN-SUFFIX</code> 处理）</label>
           <textarea id="aiDomains" rows="18" title="AI 规则列表"># 核心域名（DOMAIN-SUFFIX 已覆盖所有 *.anthropic.com 子域名）
