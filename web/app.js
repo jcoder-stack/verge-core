@@ -319,30 +319,42 @@ function collectGeneratePayload() {
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s && !s.startsWith("#"));
-  const aiProviders = $("aiProviders").value
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => s && !s.startsWith("#"))
-    .map((line) => {
-      // 支持 纯 URL / name|url|behavior|interval
-      const parts = line.split("|").map((x) => x.trim());
-      let name, url, behavior, interval;
-      if (parts.length === 1) {
-        url = parts[0];
-        // 从 URL 推导 name: 文件名去扩展名
-        const m = url.match(/\/([^/?#]+?)(?:\.[a-zA-Z0-9]+)?(?:[?#]|$)/);
-        name = m ? m[1] : "rule_" + Math.random().toString(36).slice(2, 8);
-      } else {
-        [name, url, behavior, interval] = parts;
-      }
-      return {
-        name: (name || "").replace(/[^A-Za-z0-9_\-]/g, "_"),
-        url,
-        behavior: behavior || "classical",
-        interval: Number(interval) || 259200,
-      };
-    })
-    .filter((p) => p.name && /^https?:\/\//.test(p.url));
+  // AI 规则集逐行解析。无效行不静默丢弃：预填的那行是合法的，所以被判无效的行必定是
+  // 用户自己填的 —— 他确实想要它生效，报错让他改对，好过默默扔掉后配置里查无此规则。
+  const aiProviders = [];
+  const badProviderLines = [];
+  $("aiProviders").value.split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    // 支持 纯 URL / name|url|behavior|interval
+    const parts = line.split("|").map((x) => x.trim());
+    let name, url, behavior, interval;
+    if (parts.length === 1) {
+      url = parts[0];
+      // 从 URL 推导 name: 文件名去扩展名
+      const m = url.match(/\/([^/?#]+?)(?:\.[a-zA-Z0-9]+)?(?:[?#]|$)/);
+      name = m ? m[1] : "rule_" + Math.random().toString(36).slice(2, 8);
+    } else {
+      [name, url, behavior, interval] = parts;
+    }
+    const p = {
+      name: (name || "").replace(/[^A-Za-z0-9_\-]/g, "_"),
+      url,
+      behavior: behavior || "classical",
+      interval: Number(interval) || 259200,
+    };
+    // 行号按文本框实际行数（含空行/注释行）计，与用户所见一致
+    if (p.name && /^https?:\/\//.test(p.url)) aiProviders.push(p);
+    else badProviderLines.push(`第 ${i + 1} 行：${line}`);
+  });
+  if (badProviderLines.length > 0) {
+    return {
+      error:
+        "以下「AI 规则集」行格式无效，已阻止生成（否则这些规则会被静默丢弃）：\n  - " +
+        badProviderLines.join("\n  - ") +
+        "\n格式：纯 URL（须以 http:// 或 https:// 开头），或 name|url|behavior|interval",
+    };
+  }
 
   // 4) 特定端口代理入口
   const portMappings = state.portRows
