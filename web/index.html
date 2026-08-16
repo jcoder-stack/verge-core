@@ -158,7 +158,20 @@
           <div class="hint">默认勾选。上面的「出口目标」留空即自动走本组；组内成员：<strong>直连住宅</strong>（默认）/ <strong>住宅节点</strong>，在客户端该组里切换即可在直连↔中转间换。只有当至少有一个直连或中转住宅时才会生成本组；若未勾选本组，AI 规则会自动回退到已配置的那一种住宅出口。两种住宅都没有时，AI 规则不写入，生成仍会成功并给出提示。</div>
 
           <label style="margin-top:10px">AI 规则列表（每行一条，支持完整 Clash 规则前缀；裸域名默认按 <code>DOMAIN-SUFFIX</code> 处理）</label>
-          <textarea id="aiDomains" rows="20" title="AI 规则列表"># ===== OpenAI / ChatGPT / Codex =====
+          <textarea id="aiDomains" rows="20" title="AI 规则列表"># ===== 自检（与 AI 完全同链路，用来核对出口与 DNS）=====
+# 出口 IP：https://www.cloudflare.com/cdn-cgi/trace → ip= / loc=
+#          https://speed.cloudflare.com/meta       → JSON，含 IP 与机房
+DOMAIN,cloudflare.com
+DOMAIN,www.cloudflare.com
+DOMAIN,speed.cloudflare.com
+# DNS 泄漏：https://www.dnsleaktest.com/ 做 Extended test
+#          https://ipleak.net/ 同时给出 IP 与 DNS
+# bash.ws 是 dnsleaktest 的后端，缺了测不出结果
+DOMAIN-SUFFIX,dnsleaktest.com
+DOMAIN-SUFFIX,bash.ws
+DOMAIN-SUFFIX,ipleak.net
+
+# ===== OpenAI / ChatGPT / Codex =====
 DOMAIN-SUFFIX,openai.com
 DOMAIN-SUFFIX,chatgpt.com
 DOMAIN-SUFFIX,chat.com
@@ -236,14 +249,7 @@ IP-CIDR6,2607:6bc0::/32,no-resolve
 IP-ASN,399358,no-resolve
 
 # 时间同步（避免本地时钟偏差导致鉴权失败）
-GEOSITE,category-ntp
-
-# 出口 IP 自检（走 AI 出口，访问即可看到住宅节点的真实 IP）
-# https://www.cloudflare.com/cdn-cgi/trace  → ip= / loc=
-# https://speed.cloudflare.com/meta         → JSON，含 IP 与机房
-DOMAIN,cloudflare.com
-DOMAIN,www.cloudflare.com
-DOMAIN,speed.cloudflare.com</textarea>
+GEOSITE,category-ntp</textarea>
           <div class="hint">支持：<code>DOMAIN</code> / <code>DOMAIN-SUFFIX</code> / <code>DOMAIN-KEYWORD</code> / <code>IP-CIDR</code> / <code>IP-CIDR6</code> / <code>IP-ASN</code> 等；末尾修饰符（如 <code>no-resolve</code>）会被保留。目标名由生成器自动插入到 <code>matcher</code> 之后。</div>
 
           <label style="margin-top:10px">AI 规则集（rule-providers，每行一个 URL 或 <code>name|url|behavior|interval</code>）</label>

@@ -410,3 +410,19 @@ test("UI 默认 AI 规则：检测端点用 DOMAIN 精确匹配，不波及其�
     "不应使用 DOMAIN-SUFFIX，否则 dash/api 等子域会一并走 AI 出口"
   );
 });
+
+test("UI 默认 AI 规则：含 DNS 泄漏自检站，且与 AI 同链路", () => {
+  const rules = uiDefaultAIRules();
+  ["dnsleaktest.com", "bash.ws", "ipleak.net"].forEach((d) => {
+    assert.ok(rules.includes(`DOMAIN-SUFFIX,${d}`), `默认列表缺少自检站 DOMAIN-SUFFIX,${d}`);
+  });
+});
+
+test("UI 默认 AI 规则：自检段排在最前，不必滚动即可看到", () => {
+  const rules = uiDefaultAIRules();
+  const selfCheck = rules.slice(0, 6);
+  ["cloudflare.com", "www.cloudflare.com", "speed.cloudflare.com"].forEach((d) =>
+    assert.ok(selfCheck.includes(`DOMAIN,${d}`), `${d} 应在开头的自检段内`));
+  ["dnsleaktest.com", "bash.ws", "ipleak.net"].forEach((d) =>
+    assert.ok(selfCheck.includes(`DOMAIN-SUFFIX,${d}`), `${d} 应在开头的自检段内`));
+});
