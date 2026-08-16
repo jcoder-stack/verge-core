@@ -219,6 +219,10 @@ GEOSITE,category-ntp</textarea>
             同时启用 TUN 模式 + DNS 劫持（推荐，但需额外授权）
           </label>
           <div class="hint" style="margin-left:18px">不开 TUN 时，系统级应用（CLI、Docker、未走代理的 App）的 DNS 仍可能绕过本配置直接问运营商 → 防泄漏只能"半生效"（<strong>经代理的流量不受影响，仍然防住</strong>）。勾选后会在配置里写入 <code>tun.enable: true / dns-hijack: any:53 / auto-route: true</code>。<br /><strong>⚠️ Clash Verge 用户请注意</strong>：Verge 会用它自己「TUN 设置」里的值<strong>覆盖</strong>本配置的整个 <code>tun</code> 块，<code>tun.enable</code> 更是直接跟随 GUI 的 TUN 开关。<strong>所以在 Verge 里勾选本项并不会开启 TUN，你仍需去 Verge 界面自行打开</strong>（首次需管理员授权：macOS 允许系统扩展、Windows 安装 wintun）。本项写入的 tun 块只对<strong>自行管理 TUN 的宿主</strong>（ClashMi、裸 mihomo 内核）直接生效。TUN 可能与企业 VPN / Docker 网络冲突，按需使用。</div>
+
+          <label style="margin-top:10px">DNS policy 收敛后缀（每行一个域名后缀，留空=用内置默认表）</label>
+          <textarea id="dnsPolicyCollapse" rows="3" placeholder="azureedge.net&#10;blob.core.windows.net&#10;sentry.io"></textarea>
+          <div class="hint">上面「AI 规则列表」里的 <code>DOMAIN</code> / <code>DOMAIN-SUFFIX</code> 会自动派生成 <code>nameserver-policy</code>：解析走 <code>1.1.1.1</code>，且该 DNS 连接经 <strong>AI 总出口</strong>发出（<code>#&lt;总出口组名&gt;</code>），使解析结果与真实出口同区域。命中本表后缀的细碎主机名会合并成父域（<code>openaiapi-site.azureedge.net</code> → <code>+.azureedge.net</code>），表内后缀本身也会无条件写入 policy。<br /><strong>注意</strong>：<code>sentry.io</code>、<code>datadoghq.com</code>、<code>auth0.com</code> 这类跨站后缀会把非 AI 站点的同后缀域名也一并拉去 <code>1.1.1.1</code> 解析。<strong>填任意一行即整表覆盖默认表</strong>，不是追加。</div>
         </div>
 
         <details>

@@ -19,6 +19,7 @@ function vmRunHook(script, params) {
 const { tryDecodeSubscription, summarize } = require("../lib/subscription");
 const { buildYaml, buildAIRuleLine, HttpError } = require("../lib/generate-yaml");
 const { buildOverrideScript } = require("../lib/generate-script");
+const { buildDnsSection } = require("../lib/dns");
 
 // 测试用直连住宅节点（vless + reality，带嵌套字段）
 const DIRECT_NODE = {
@@ -248,13 +249,68 @@ test("DNS 防泄漏：YAML 与 Script 两条路径产出的 dns 段逐字一致"
   const s = vmRunHook(buildOverrideScript(dnsOpts()), yaml.load(baseYaml()));
   // Script 路径的对象在 vm 沙箱内创建，属另一个 realm，原型不同一 —— deepStrictEqual
   // 会因此对结构相同的对象判不等。故先经 JSON 归一化，只比结构。
-  const plain = (o) => JSON.parse(JSON.stringify(o));
+  const plain = (o) => (o === undefined ? null : JSON.parse(JSON.stringify(o)));
   assert.deepStrictEqual(plain(s.dns), plain(y.dns), "两版 dns 段已走样");
+  assert.deepStrictEqual(plain(s.sniffer), plain(y.sniffer), "两版 sniffer 段已走样");
+  assert.deepStrictEqual(plain(s.tun), plain(y.tun), "两版 tun 段已走样");
+  assert.deepStrictEqual(
+    plain(s["rule-providers"]["fakeipfilter_domain"]),
+    plain(y["rule-providers"]["fakeipfilter_domain"]),
+    "两版 fakeip 规则集已走样"
+  );
   assert.strictEqual(s.ipv6, y.ipv6, "两版顶层 ipv6 已走样");
 });
 
 test("未启用 DNS 防泄漏时不注入 dns，也不动顶层 ipv6", () => {
   const out = yaml.load(buildYaml({ ...dnsOpts({ dnsAntiLeak: false }), srcYaml: baseYaml() }, {}));
   assert.strictEqual(out.dns, undefined);
+  assert.strictEqual(out.ipv6, undefined);
+});
+
+test("buildYaml: dns 段直接取自 buildDnsSection，无第二份实现", () => {
+  const opts = dnsOpts({ dnsLan: true, dnsTun: true, aiExitGroup: "AI 总出口", aiRules: { target: "AI 总出口", domains: ["DOMAIN-SUFFIX,claude.ai"], providers: [] } });
+  const out = yaml.load(buildYaml({ ...opts, srcYaml: baseYaml() }, {}));
+  assert.deepStrictEqual(out.dns, buildDnsSection(opts).dns);
+});
+
+test("buildYaml: AI 域名派生的 nameserver-policy 经 AI 总出口解析", () => {
+  const out = yaml.load(buildYaml({
+    ...dnsOpts({ aiExitGroup: "AI 总出口", aiRules: { target: "AI 总出口", domains: ["DOMAIN-SUFFIX,claude.ai"], providers: [] } }),
+    srcYaml: baseYaml(),
+  }, {}));
+  assert.deepStrictEqual(out.dns["nameserver-policy"]["+.claude.ai"], ["https://1.1.1.1/dns-query#AI 总出口"]);
+});
+
+test("buildYaml: dnsPolicyCollapse 透传到 nameserver-policy", () => {
+  const out = yaml.load(buildYaml({
+    ...dnsOpts({ dnsPolicyCollapse: ["azureedge.net"], aiRules: { target: "住宅节点", domains: ["DOMAIN,openaiapi-site.azureedge.net"], providers: [] } }),
+    srcYaml: baseYaml(),
+  }, {}));
+  const policy = out.dns["nameserver-policy"];
+  assert.ok(policy["+.azureedge.net"], "自定义收敛后缀生效");
+  assert.strictEqual(policy["+.sift.com"], undefined, "默认收敛表已被整表覆盖");
+});
+
+test("buildOverrideScript: dnsPolicyCollapse 内联进生成脚本", () => {
+  const script = buildOverrideScript(dnsOpts({
+    dnsPolicyCollapse: ["azureedge.net"],
+    aiRules: { target: "住宅节点", domains: ["DOMAIN,openaiapi-site.azureedge.net"], providers: [] },
+  }));
+  assert.match(script, /\+\.azureedge\.net/);
+  assert.doesNotMatch(script, /\+\.sift\.com/);
+});
+
+test("buildYaml: dnsTun 保留订阅里已有的 tun.stack", () => {
+  const src = yaml.dump({ proxies: [{ name: "vps1", type: "ss", server: "1.2.3.4", port: 443 }], "proxy-groups": [], rules: [], tun: { stack: "gvisor" } });
+  const out = yaml.load(buildYaml({ ...dnsOpts({ dnsTun: true }), srcYaml: src }, {}));
+  assert.strictEqual(out.tun.stack, "gvisor", "已有 stack 优先");
+  assert.strictEqual(out.tun.enable, true);
+});
+
+test("未启用 DNS 防泄漏时 script 路径也不注入 dns/sniffer/tun", () => {
+  const out = vmRunHook(buildOverrideScript(dnsOpts({ dnsAntiLeak: false })), yaml.load(baseYaml()));
+  assert.deepStrictEqual(Object.keys(out.dns), [], "dns 保持初始化后的空对象");
+  assert.strictEqual(out.sniffer, undefined);
+  assert.strictEqual(out.tun, undefined);
   assert.strictEqual(out.ipv6, undefined);
 });

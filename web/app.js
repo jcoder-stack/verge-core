@@ -388,6 +388,14 @@ function collectGeneratePayload() {
 
   const extensionScript = (window.VergeTransport && window.VergeTransport.supportsHook === false) ? "" : $("extScript").value;
 
+  // DNS policy 收敛后缀：填了就整表覆盖 lib/dns.js 的内置默认表
+  const dnsPolicyCollapse = $("dnsPolicyCollapse")
+    ? $("dnsPolicyCollapse").value
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter((s) => s && !s.startsWith("#"))
+    : [];
+
   return {
     body: {
       yaml: state.yaml,
@@ -401,6 +409,8 @@ function collectGeneratePayload() {
       dnsAntiLeak: $("dnsAntiLeak").checked,
       dnsLan: $("dnsLan") ? $("dnsLan").checked : false,
       dnsTun: $("dnsTun") ? $("dnsTun").checked : false,
+      // 留空 = 不传 = 用内置默认收敛表
+      ...(dnsPolicyCollapse.length > 0 ? { dnsPolicyCollapse } : {}),
       portMappings,
       extensionScript,
     },
