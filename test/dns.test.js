@@ -215,29 +215,34 @@ test("buildDnsSection: AI 分流不受影响，policy 仍走 Cloudflare", () => 
   assert.deepEqual(dns["nameserver-policy"]["+.claude.ai"], ["https://1.1.1.1/dns-query#AI 总出口"]);
 });
 
-// ------- 分层原则：直连发出的 DNS 一律国内，只有经代理发出的才用国外 -------
-// 国内到国外 DNS 的可达性不可靠（TLS 被 RST / UDP 被污染），任何直连发出的
-// 查询都不能依赖它，否则一断即全局失效。走代理发出的则不受此限。
+// ------- 分层原则：按「挂掉会不会全盘断网」划分，不是按直连还是走代理 -------
+// 可用性关键路径（bootstrap、代理节点域名）一挂就全断，必须选最可靠的国内 DNS；
+// 防泄漏路径（兜底、AI policy）挂了不致命，必须走国外，否则 DNS 泄漏检测会
+// 直接暴露国内递归服务器 —— 那正是这套配置要防的东西。
 
-test("buildDnsSection: 所有直连发出的 DNS 都指向国内", () => {
+test("buildDnsSection: 可用性关键路径用国内，一挂即全断的位置不赌可达性", () => {
   const { dns } = buildDnsSection({});
   const foreign = /1\.1\.1\.1|8\.8\.8\.8|dns\.google|cloudflare-dns/;
-  // default-nameserver 允许把国外 IP 作为末位备份，但首选必须是国内
   assert.ok(!foreign.test(dns["default-nameserver"][0]), "default-nameserver 首选应为国内");
   dns["proxy-server-nameserver"].forEach((s) =>
     assert.ok(!foreign.test(s), `proxy-server-nameserver 不应含国外 DNS: ${s}`));
   dns["direct-nameserver"].forEach((s) =>
     assert.ok(!foreign.test(s), `direct-nameserver 不应含国外 DNS: ${s}`));
-  dns.nameserver.forEach((s) =>
-    assert.ok(!foreign.test(s), `兜底 nameserver 不应含国外 DNS: ${s}`));
 });
 
-test("buildDnsSection: 兜底 nameserver 用国内 DoH", () => {
+test("buildDnsSection: 兜底 nameserver 走国外，否则 DNS 泄漏检测会暴露国内递归", () => {
   const { dns } = buildDnsSection({});
   assert.deepEqual(dns.nameserver, [
-    "https://dns.alidns.com/dns-query",
-    "https://doh.pub/dns-query",
+    "https://1.1.1.1/dns-query#RULES",
+    "https://8.8.8.8/dns-query#RULES",
   ]);
+});
+
+test("buildDnsSection: 兜底 nameserver 不得含国内 DNS", () => {
+  const { dns } = buildDnsSection({});
+  dns.nameserver.forEach((s) =>
+    assert.ok(!/alidns|doh\.pub|223\.5\.5\.5|119\.29/.test(s),
+      `兜底走国内会导致 DNS 泄漏检测显示国内递归: ${s}`));
 });
 
 test("buildDnsSection: 只有 AI policy 走国外，且经 AI 总出口发出", () => {
