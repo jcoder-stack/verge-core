@@ -236,7 +236,14 @@ IP-CIDR6,2607:6bc0::/32,no-resolve
 IP-ASN,399358,no-resolve
 
 # 时间同步（避免本地时钟偏差导致鉴权失败）
-GEOSITE,category-ntp</textarea>
+GEOSITE,category-ntp
+
+# 出口 IP 自检（走 AI 出口，访问即可看到住宅节点的真实 IP）
+# https://www.cloudflare.com/cdn-cgi/trace  → ip= / loc=
+# https://speed.cloudflare.com/meta         → JSON，含 IP 与机房
+DOMAIN,cloudflare.com
+DOMAIN,www.cloudflare.com
+DOMAIN,speed.cloudflare.com</textarea>
           <div class="hint">支持：<code>DOMAIN</code> / <code>DOMAIN-SUFFIX</code> / <code>DOMAIN-KEYWORD</code> / <code>IP-CIDR</code> / <code>IP-CIDR6</code> / <code>IP-ASN</code> 等；末尾修饰符（如 <code>no-resolve</code>）会被保留。目标名由生成器自动插入到 <code>matcher</code> 之后。</div>
 
           <label style="margin-top:10px">AI 规则集（rule-providers，每行一个 URL 或 <code>name|url|behavior|interval</code>）</label>
@@ -345,6 +352,7 @@ GEOSITE,category-ntp</textarea>
   </section>
 </main>
 
+<script src="./node-filter.js"></script>
 <script src="transport.js"></script>
 <script src="./app.js"></script>
 </body>

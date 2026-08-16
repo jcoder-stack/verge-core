@@ -395,3 +395,18 @@ test("buildYaml 与 buildOverrideScript 对同一自环配置给出一致的拒�
   assert.strictEqual(sErr.status, yErr.status, "状态码应一致");
   assert.strictEqual(sErr.message, yErr.message, "错误信息应一致");
 });
+
+test("UI 默认 AI 规则：含 Cloudflare 出口 IP 检测端点", () => {
+  const rules = uiDefaultAIRules();
+  ["cloudflare.com", "www.cloudflare.com", "speed.cloudflare.com"].forEach((d) => {
+    assert.ok(rules.includes(`DOMAIN,${d}`), `默认列表缺少检测端点 DOMAIN,${d}`);
+  });
+});
+
+test("UI 默认 AI 规则：检测端点用 DOMAIN 精确匹配，不波及其它 cloudflare 子域", () => {
+  const rules = uiDefaultAIRules();
+  assert.ok(
+    !rules.includes("DOMAIN-SUFFIX,cloudflare.com"),
+    "不应使用 DOMAIN-SUFFIX，否则 dash/api 等子域会一并走 AI 出口"
+  );
+});

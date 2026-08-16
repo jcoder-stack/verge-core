@@ -11,6 +11,14 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+// 当前筛选条件下可见的节点 —— 渲染与「全选/清空」共用同一份，
+// 否则过滤状态下的批量操作会作用到被隐藏的节点上。
+const filterNodes = (nodes, kw) => window.VergeNodeFilter.filterNodes(nodes, kw);
+const visibleProxies = () =>
+  state.summary ? filterNodes(state.summary.proxies, $("nodeFilter").value) : [];
+const visibleDirectRes = () =>
+  filterNodes(Object.values(state.directResProxies), $("dresFilter").value);
+
 document.querySelectorAll(".tabs button").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tabs button").forEach((b) => { b.classList.remove("active"); });
@@ -173,10 +181,7 @@ function renderNodeList() {
     listEl.innerHTML = '<div class="empty">无节点</div>';
     return;
   }
-  const kw = $("nodeFilter").value.trim().toLowerCase();
-  const items = state.summary.proxies.filter(
-    (p) => !kw || p.name.toLowerCase().includes(kw) || (p.type || "").toLowerCase().includes(kw)
-  );
+  const items = visibleProxies();
   listEl.innerHTML = items
     .map((p) => {
       const checked = state.selected.has(p.name) ? "checked" : "";
@@ -207,19 +212,17 @@ function updateSelCount() {
 
 $("nodeFilter").addEventListener("input", renderNodeList);
 $("selAll").addEventListener("click", () => {
-  if (!state.summary) return;
-  state.summary.proxies.forEach((p) => state.selected.add(p.name));
+  visibleProxies().forEach((p) => state.selected.add(p.name));
   renderNodeList();
 });
 $("selNone").addEventListener("click", () => {
-  state.selected.clear();
+  visibleProxies().forEach((p) => state.selected.delete(p.name));
   renderNodeList();
 });
 $("selPremium").addEventListener("click", () => {
-  if (!state.summary) return;
-  state.selected.clear();
-  state.summary.proxies.forEach((p) => {
+  visibleProxies().forEach((p) => {
     if (/\[专线\]/.test(p.name)) state.selected.add(p.name);
+    else state.selected.delete(p.name);
   });
   renderNodeList();
 });
@@ -618,10 +621,7 @@ function renderDirectResList() {
     listEl.innerHTML = '<div class="empty">无节点</div>';
     return;
   }
-  const kw = $("dresFilter").value.trim().toLowerCase();
-  const items = all.filter(
-    (p) => !kw || p.name.toLowerCase().includes(kw) || (p.type || "").toLowerCase().includes(kw)
-  );
+  const items = visibleDirectRes();
   listEl.innerHTML = items
     .map((p) => {
       const checked = state.directResSelected.has(p.name) ? "checked" : "";
@@ -650,14 +650,14 @@ function renderDirectResList() {
 
 $("dresFilter").addEventListener("input", renderDirectResList);
 $("dresSelAll").addEventListener("click", () => {
-  Object.keys(state.directResProxies).forEach((name) => state.directResSelected.add(name));
+  visibleDirectRes().forEach((p) => state.directResSelected.add(p.name));
   renderDirectResList();
   refreshTargetOptions();
   updateSelCount();
   updateDresStatus();
 });
 $("dresSelNone").addEventListener("click", () => {
-  state.directResSelected.clear();
+  visibleDirectRes().forEach((p) => state.directResSelected.delete(p.name));
   renderDirectResList();
   refreshTargetOptions();
   updateSelCount();
