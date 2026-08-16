@@ -314,3 +314,44 @@ test("未启用 DNS 防泄漏时 script 路径也不注入 dns/sniffer/tun", () 
   assert.strictEqual(out.tun, undefined);
   assert.strictEqual(out.ipv6, undefined);
 });
+
+// ---- Web UI 默认 AI 规则列表：内容与可解析性 ----
+// 默认列表写在 index.html 的 textarea 里，无法被打字机检查。此处从 HTML 提取后
+// 过一遍真实的规则构造函数，避免手滑写坏一行却要到用户生成时才暴露。
+
+function uiDefaultAIRules() {
+  const html = require("node:fs").readFileSync(require("node:path").join(__dirname, "../web/index.html"), "utf8");
+  const m = html.match(/<textarea id="aiDomains"[^>]*>([\s\S]*?)<\/textarea>/);
+  assert.ok(m, "index.html 里应存在 aiDomains textarea");
+  return m[1].split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+}
+
+test("UI 默认 AI 规则：每行都能构造出合法的 Clash 规则", () => {
+  const known = new Set([
+    "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "DOMAIN-REGEX",
+    "GEOSITE", "GEOIP", "IP-CIDR", "IP-CIDR6", "IP-ASN", "PROCESS-NAME",
+  ]);
+  uiDefaultAIRules().forEach((line) => {
+    const out = buildAIRuleLine(line, "AI 总出口");
+    const parts = out.split(",");
+    assert.ok(known.has(parts[0]), `未知规则类型: ${line}`);
+    assert.ok(parts[1] && parts[1].length > 0, `匹配内容为空: ${line}`);
+    assert.strictEqual(parts[2], "AI 总出口", `目标未正确插入: ${line}`);
+  });
+});
+
+test("UI 默认 AI 规则：覆盖 OpenAI 与 Anthropic 两条线的核心域名", () => {
+  const rules = uiDefaultAIRules();
+  ["openai.com", "chatgpt.com", "sora.com", "claude.ai", "claude.com", "anthropic.com"].forEach((d) => {
+    assert.ok(rules.includes(`DOMAIN-SUFFIX,${d}`), `默认列表缺少 DOMAIN-SUFFIX,${d}`);
+  });
+  ["GEOSITE,openai", "GEOSITE,anthropic"].forEach((g) => {
+    assert.ok(rules.includes(g), `默认列表缺少 ${g}`);
+  });
+});
+
+test("UI 默认 AI 规则：无重复行", () => {
+  const rules = uiDefaultAIRules();
+  const dup = rules.filter((r, i) => rules.indexOf(r) !== i);
+  assert.deepStrictEqual(dup, [], `存在重复规则: ${dup.join(" / ")}`);
+});

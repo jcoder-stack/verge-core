@@ -158,7 +158,42 @@
           <div class="hint">默认勾选。上面的「出口目标」留空即自动走本组；组内成员：<strong>直连住宅</strong>（默认）/ <strong>住宅节点</strong>，在客户端该组里切换即可在直连↔中转间换。只有当至少有一个直连或中转住宅时才会生成本组；若未勾选本组，AI 规则会自动回退到已配置的那一种住宅出口。两种住宅都没有时，AI 规则不写入，生成仍会成功并给出提示。</div>
 
           <label style="margin-top:10px">AI 规则列表（每行一条，支持完整 Clash 规则前缀；裸域名默认按 <code>DOMAIN-SUFFIX</code> 处理）</label>
-          <textarea id="aiDomains" rows="18" title="AI 规则列表"># 核心域名（DOMAIN-SUFFIX 已覆盖所有 *.anthropic.com 子域名）
+          <textarea id="aiDomains" rows="20" title="AI 规则列表"># ===== OpenAI / ChatGPT / Codex =====
+DOMAIN-SUFFIX,openai.com
+DOMAIN-SUFFIX,chatgpt.com
+DOMAIN-SUFFIX,chat.com
+DOMAIN-SUFFIX,sora.com
+DOMAIN-SUFFIX,oaistatic.com
+DOMAIN-SUFFIX,oaiusercontent.com
+DOMAIN-SUFFIX,crixet.com
+GEOSITE,openai
+
+# OpenAI CDN / Azure
+DOMAIN,openai.com.cdn.cloudflare.net
+DOMAIN,openaicom.imgix.net
+DOMAIN,openaiapi-site.azureedge.net
+DOMAIN,production-openaicom-storage.azureedge.net
+DOMAIN,openaicomproductionae4b.blob.core.windows.net
+DOMAIN,openaicom-api-bdcpf8c6d2e9atf6.z01.azurefd.net
+DOMAIN-SUFFIX,webpubsub.azure.com
+
+# OpenAI / ChatGPT 人机验证（Arkose）
+DOMAIN,client-api.arkoselabs.com
+DOMAIN,openai-api.arkoselabs.com
+DOMAIN-SUFFIX,arkoselabs.com
+
+# ChatGPT 语音通话（LiveKit）
+DOMAIN,chatgpt.livekit.cloud
+DOMAIN,host.livekit.cloud
+DOMAIN,turn.livekit.cloud
+DOMAIN-SUFFIX,livekit.cloud
+
+# OpenAI 监控
+DOMAIN,o33249.ingest.sentry.io
+DOMAIN,browser-intake-datadoghq.com
+
+# ===== Claude / Anthropic =====
+# 核心域名（DOMAIN-SUFFIX 已覆盖所有 *.anthropic.com 子域名）
 DOMAIN-SUFFIX,anthropic.com
 DOMAIN-SUFFIX,claude.ai
 DOMAIN-SUFFIX,claude.com
@@ -167,6 +202,12 @@ DOMAIN-SUFFIX,claudemcpclient.com
 DOMAIN-SUFFIX,claudemcpcontent.com
 DOMAIN-SUFFIX,claudeusercontent.com
 GEOSITE,anthropic
+
+# Anthropic 官方服务（已被上面的 anthropic.com 覆盖，列出仅为可读性）
+DOMAIN-SUFFIX,cdn.anthropic.com
+DOMAIN-SUFFIX,mcp.anthropic.com
+DOMAIN-SUFFIX,console.anthropic.com
+DOMAIN-SUFFIX,workbench.anthropic.com
 
 # CDN 和静态资源
 DOMAIN,servd-anthropic-website.b-cdn.net
