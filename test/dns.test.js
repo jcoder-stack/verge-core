@@ -19,32 +19,11 @@ test("buildDnsSection: 返回 dns/sniffer/tun/ruleProviders/ipv6 五段", () => 
 
 // ------- 分流：国内走国内、国外基础设施走国外 -------
 
-test("buildDnsSection: bootstrap 用纯 IP 国外 DNS", () => {
-  const { dns } = buildDnsSection({});
-  assert.deepEqual(dns["default-nameserver"], ["1.1.1.1", "8.8.8.8"]);
-});
-
-test("buildDnsSection: proxy-server-nameserver 用 IP 形式国外 DoH", () => {
-  const { dns } = buildDnsSection({});
-  assert.deepEqual(dns["proxy-server-nameserver"], [
-    "https://1.1.1.1/dns-query",
-    "https://8.8.8.8/dns-query",
-  ]);
-});
-
 test("buildDnsSection: direct-nameserver 保持国内 DoH", () => {
   const { dns } = buildDnsSection({});
   assert.deepEqual(dns["direct-nameserver"], [
     "https://dns.alidns.com/dns-query",
     "https://doh.pub/dns-query",
-  ]);
-});
-
-test("buildDnsSection: 兜底 nameserver 以 1.1.1.1 为首", () => {
-  const { dns } = buildDnsSection({});
-  assert.deepEqual(dns.nameserver, [
-    "https://1.1.1.1/dns-query#RULES",
-    "https://8.8.8.8/dns-query#RULES",
   ]);
 });
 
@@ -205,4 +184,71 @@ test("buildDnsSection: 同级独立顶级域不会被误收敛", () => {
     aiRules: { domains: ["DOMAIN,browser-intake-datadoghq.com"] },
   });
   assert.ok(dns["nameserver-policy"]["+.browser-intake-datadoghq.com"]);
+});
+
+// ------- proxy-server-nameserver 必须优先保证可达性 -------
+// 曾把这两项改为国外 DoH，导致 TUN 全局模式下彻底断网：该查询直连发出，
+// 用于解析机场节点域名，国内直连 1.1.1.1:443 的 TLS 常被 RST，而 DoH 是
+// 全有或全无 —— 一断就解析不出任何节点，全局流量随之无出口。
+// 机场域名不敏感，无需抗污染；此处可达性优先级高于抗污染。
+
+test("buildDnsSection: proxy-server-nameserver 用国内 DoH，保证直连必达", () => {
+  const { dns } = buildDnsSection({});
+  assert.deepEqual(dns["proxy-server-nameserver"], [
+    "https://dns.alidns.com/dns-query",
+    "https://doh.pub/dns-query",
+  ]);
+});
+
+test("buildDnsSection: default-nameserver 以国内 IP 打头", () => {
+  const { dns } = buildDnsSection({});
+  const ns = dns["default-nameserver"];
+  assert.equal(ns[0], "223.5.5.5", "首选国内 IP，用于解析上面两个 DoH 域名");
+  assert.ok(ns.every((s) => /^\d+\.\d+\.\d+\.\d+$/.test(s)), "必须全部是纯 IP，不能是需要再解析的域名");
+});
+
+test("buildDnsSection: AI 分流不受影响，policy 仍走 Cloudflare", () => {
+  const { dns } = buildDnsSection({
+    aiExitGroup: "AI 总出口",
+    aiRules: { domains: ["DOMAIN-SUFFIX,claude.ai"] },
+  });
+  assert.deepEqual(dns["nameserver-policy"]["+.claude.ai"], ["https://1.1.1.1/dns-query#AI 总出口"]);
+});
+
+// ------- 分层原则：直连发出的 DNS 一律国内，只有经代理发出的才用国外 -------
+// 国内到国外 DNS 的可达性不可靠（TLS 被 RST / UDP 被污染），任何直连发出的
+// 查询都不能依赖它，否则一断即全局失效。走代理发出的则不受此限。
+
+test("buildDnsSection: 所有直连发出的 DNS 都指向国内", () => {
+  const { dns } = buildDnsSection({});
+  const foreign = /1\.1\.1\.1|8\.8\.8\.8|dns\.google|cloudflare-dns/;
+  // default-nameserver 允许把国外 IP 作为末位备份，但首选必须是国内
+  assert.ok(!foreign.test(dns["default-nameserver"][0]), "default-nameserver 首选应为国内");
+  dns["proxy-server-nameserver"].forEach((s) =>
+    assert.ok(!foreign.test(s), `proxy-server-nameserver 不应含国外 DNS: ${s}`));
+  dns["direct-nameserver"].forEach((s) =>
+    assert.ok(!foreign.test(s), `direct-nameserver 不应含国外 DNS: ${s}`));
+  dns.nameserver.forEach((s) =>
+    assert.ok(!foreign.test(s), `兜底 nameserver 不应含国外 DNS: ${s}`));
+});
+
+test("buildDnsSection: 兜底 nameserver 用国内 DoH", () => {
+  const { dns } = buildDnsSection({});
+  assert.deepEqual(dns.nameserver, [
+    "https://dns.alidns.com/dns-query",
+    "https://doh.pub/dns-query",
+  ]);
+});
+
+test("buildDnsSection: 只有 AI policy 走国外，且经 AI 总出口发出", () => {
+  const { dns } = buildDnsSection({
+    aiExitGroup: "AI 总出口",
+    aiRules: { domains: ["DOMAIN-SUFFIX,claude.ai"] },
+  });
+  const policy = dns["nameserver-policy"];
+  assert.deepEqual(policy["+.claude.ai"], ["https://1.1.1.1/dns-query#AI 总出口"]);
+  assert.deepEqual(policy["geosite:cn"], [
+    "https://dns.alidns.com/dns-query",
+    "https://doh.pub/dns-query",
+  ]);
 });
