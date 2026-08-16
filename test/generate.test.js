@@ -355,3 +355,43 @@ test("UI 默认 AI 规则：无重复行", () => {
   const dup = rules.filter((r, i) => rules.indexOf(r) !== i);
   assert.deepStrictEqual(dup, [], `存在重复规则: ${dup.join(" / ")}`);
 });
+
+// ---- dialer-proxy 自环防御：两条生成路径必须都拦 ----
+// 住宅节点挂 dialer-proxy → 中转组；若中转组候选里又含该住宅节点，
+// 就形成自环。YAML 路径原本已拦，Script 路径此前会静默产出坏配置。
+
+function loopOpts(over) {
+  return {
+    relay: { name: "高速中转", type: "select", proxies: ["vps1", "住宅-1"] },
+    residentials: [{ name: "住宅-1", type: "socks5", server: "h", port: 1, username: "u", password: "p" }],
+    residentialGroup: "住宅节点",
+    ...over,
+  };
+}
+
+test("buildOverrideScript: 中转组候选含住宅节点名时抛 HttpError(400)", () => {
+  assert.throws(
+    () => buildOverrideScript(loopOpts()),
+    (e) => e instanceof HttpError && e.status === 400
+  );
+});
+
+test("buildOverrideScript: 自环错误信息指出冲突的节点名", () => {
+  assert.throws(() => buildOverrideScript(loopOpts()), /住宅-1/);
+});
+
+test("buildOverrideScript: 中转组候选与住宅节点无交集时正常生成", () => {
+  const script = buildOverrideScript(loopOpts({
+    relay: { name: "高速中转", type: "select", proxies: ["vps1"] },
+  }));
+  assert.match(script, /const RELAY = /);
+});
+
+test("buildYaml 与 buildOverrideScript 对同一自环配置给出一致的拒绝", () => {
+  const opts = loopOpts();
+  const yErr = (() => { try { buildYaml({ ...opts, srcYaml: baseYaml() }, {}); } catch (e) { return e; } })();
+  const sErr = (() => { try { buildOverrideScript(opts); } catch (e) { return e; } })();
+  assert.ok(yErr instanceof HttpError && sErr instanceof HttpError, "两条路径都应抛 HttpError");
+  assert.strictEqual(sErr.status, yErr.status, "状态码应一致");
+  assert.strictEqual(sErr.message, yErr.message, "错误信息应一致");
+});
