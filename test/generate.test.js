@@ -199,6 +199,67 @@ test("buildOverrideScript: aiExitGroup 运行时创建总出口组（直连+住�
   assert.deepEqual(g.proxies, ["直连住宅", "住宅节点"]);
 });
 
+// 生成的脚本要能当"配置文件"用：用户直接在里面增删改代理数组，保存即生效，
+// 不必回生成器重跑一遍。这要求代理常量以缩进多行形态内联，而不是压成一行。
+function editableOpts(over) {
+  return Object.assign(
+    {
+      relay: { name: "高速中转", type: "select", proxies: ["vps1"] },
+      residentials: [
+        { name: "住宅-1", type: "socks5", server: "1.2.3.4", port: 8080, username: "u1", password: "p1", udp: true },
+        { name: "住宅-2", type: "socks5", server: "5.6.7.8", port: 8080, username: "u2", password: "p2", udp: true },
+      ],
+      residentialGroup: "住宅节点",
+    },
+    over
+  );
+}
+
+test("buildOverrideScript: 代理常量以多行缩进内联，空值仍保持单行", () => {
+  const script = buildOverrideScript(editableOpts());
+  assert.match(script, /const RELAY = \{\n  "name": "高速中转",\n/);
+  assert.match(script, /const RESIDENTIALS = \[\n  \{\n    "name": "住宅-1",\n/);
+  // 未启用的常量不该被缩进撑成多行，否则脚本里全是空壳噪音
+  assert.match(script, /const DIRECT_RESIDENTIALS = \[\];/);
+  assert.match(script, /const PORT_MAPPINGS = \[\];/);
+  assert.match(script, /const AI_RULES = null;/);
+});
+
+test("buildOverrideScript: 手工改写 RESIDENTIALS 后脚本直接生效，无需重新生成", () => {
+  const script = buildOverrideScript(editableOpts());
+  // 模拟用户在编辑器里改脚本：改掉一个节点的 server，并在数组开头追加一个新节点
+  const added = [
+    'const RESIDENTIALS = [',
+    '  {',
+    '    "name": "住宅-9",',
+    '    "type": "socks5",',
+    '    "server": "8.8.8.8",',
+    '    "port": 9090,',
+    '    "username": "u9",',
+    '    "password": "p9",',
+    '    "udp": true',
+    '  },',
+    '',
+  ].join("\n");
+  const edited = script
+    .replace('"server": "1.2.3.4"', '"server": "9.9.9.9"')
+    .replace("const RESIDENTIALS = [\n", added);
+  assert.notEqual(edited, script, "脚本必须是可被逐行编辑的形态");
+
+  const out = vmRunHook(edited, {
+    proxies: [{ name: "vps1", type: "ss", server: "1.2.3.4", port: 443 }],
+    "proxy-groups": [],
+    rules: [],
+  });
+  const edited1 = out.proxies.find((p) => p.name === "住宅-1");
+  assert.equal(edited1.server, "9.9.9.9", "改过的 server 生效");
+  const added9 = out.proxies.find((p) => p.name === "住宅-9");
+  assert.ok(added9, "手工追加的节点被注入");
+  assert.equal(added9["dialer-proxy"], "高速中转", "追加的节点同样自动挂中转");
+  const group = out["proxy-groups"].find((g) => g.name === "住宅节点");
+  assert.deepEqual(group.proxies, ["住宅-9", "住宅-1", "住宅-2"], "住宅组自动跟随数组");
+});
+
 // ------- generate-yaml.js: buildYaml + runHook 注入 -------
 
 test("buildYaml: 注入 runHook，extensionScript 修改 params", () => {
