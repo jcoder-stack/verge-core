@@ -487,3 +487,28 @@ test("UI 默认 AI 规则：自检段排在最前，不必滚动即可看到", (
   ["dnsleaktest.com", "bash.ws", "ipleak.net"].forEach((d) =>
     assert.ok(selfCheck.includes(`DOMAIN-SUFFIX,${d}`), `${d} 应在开头的自检段内`));
 });
+
+// ---- proxy-server-nameserver 继承订阅（分区解析机场，如 MESL） ----
+
+function yamlWithDns() {
+  const o = yaml.load(baseYaml());
+  o.dns = { enable: true, nameserver: ["https://zone.rlose.com:39933/api-query", "https://1.1.1.1/dns-query"] };
+  return o;
+}
+
+test("DNS 防泄漏：两条路径都继承订阅 nameserver 作为 proxy-server-nameserver", () => {
+  const plain = (o) => JSON.parse(JSON.stringify(o));
+  const y = yaml.load(buildYaml({ ...dnsOpts(), srcYaml: yaml.dump(yamlWithDns()) }, {}));
+  const s = vmRunHook(buildOverrideScript(dnsOpts()), yamlWithDns());
+  assert.deepStrictEqual(y.dns["proxy-server-nameserver"], ["https://zone.rlose.com:39933/api-query"]);
+  assert.deepStrictEqual(plain(s.dns), plain(y.dns), "两版 dns 段已走样");
+});
+
+test("DNS 防泄漏：继承只动 proxy-server-nameserver，其余防泄漏字段不变", () => {
+  const y = yaml.load(buildYaml({ ...dnsOpts(), srcYaml: yaml.dump(yamlWithDns()) }, {}));
+  const ref = buildDnsSection(dnsOpts()).dns;
+  assert.deepStrictEqual(y.dns.nameserver, ref.nameserver);
+  assert.deepStrictEqual(y.dns["direct-nameserver"], ref["direct-nameserver"]);
+  assert.deepStrictEqual(y.dns["nameserver-policy"], ref["nameserver-policy"]);
+});
+

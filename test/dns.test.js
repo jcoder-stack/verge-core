@@ -4,7 +4,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 
-const { buildDnsSection, DEFAULT_DNS_POLICY_COLLAPSE } = require("../lib/dns");
+const { buildDnsSection, DEFAULT_DNS_POLICY_COLLAPSE, inheritProxyServerNameserver } = require("../lib/dns");
 
 // ------- 基础形状 -------
 
@@ -256,4 +256,55 @@ test("buildDnsSection: 只有 AI policy 走国外，且经 AI 总出口发出", 
     "https://dns.alidns.com/dns-query",
     "https://doh.pub/dns-query",
   ]);
+});
+
+// ------- proxy-server-nameserver 继承订阅 -------
+// 部分机场对节点域名做分区解析：只有自家 DoH 返回可用入口，公共 DNS 给的 IP 握不上手。
+
+const FALLBACK = ["https://dns.alidns.com/dns-query", "https://doh.pub/dns-query"];
+
+test("inheritProxyServerNameserver: 订阅无 dns 段时回退国内 DoH", () => {
+  assert.deepEqual(inheritProxyServerNameserver(undefined, FALLBACK), FALLBACK);
+  assert.deepEqual(inheritProxyServerNameserver({}, FALLBACK), FALLBACK);
+});
+
+test("inheritProxyServerNameserver: 继承订阅 nameserver（机场私有 DoH）", () => {
+  const src = { nameserver: ["https://zone.rlose.com:39933/api-query", "https://radar.rlose.com/api-query"] };
+  assert.deepEqual(inheritProxyServerNameserver(src, FALLBACK), src.nameserver);
+});
+
+test("inheritProxyServerNameserver: 订阅显式 proxy-server-nameserver 优先于 nameserver", () => {
+  const src = { "proxy-server-nameserver": ["https://a.example/dns-query"], nameserver: ["https://b.example/dns-query"] };
+  assert.deepEqual(inheritProxyServerNameserver(src, FALLBACK), ["https://a.example/dns-query"]);
+});
+
+test("inheritProxyServerNameserver: 剥掉 #出站 后缀，节点解析只能直连", () => {
+  const src = { nameserver: ["https://a.example/dns-query#节点选择", "https://a.example/dns-query"] };
+  assert.deepEqual(inheritProxyServerNameserver(src, FALLBACK), ["https://a.example/dns-query"]);
+});
+
+test("inheritProxyServerNameserver: 过滤 system/dhcp 与境外公共 DNS", () => {
+  const src = {
+    nameserver: [
+      "system",
+      "dhcp://en0",
+      "https://1.1.1.1/dns-query",
+      "tls://8.8.8.8",
+      "https://dns.google/dns-query",
+      "https://cloudflare-dns.com/dns-query",
+      "223.5.5.5",
+    ],
+  };
+  assert.deepEqual(inheritProxyServerNameserver(src, FALLBACK), ["223.5.5.5"]);
+});
+
+test("inheritProxyServerNameserver: 过滤后为空则回退", () => {
+  const src = { nameserver: ["system", "https://1.1.1.1/dns-query#RULES"] };
+  assert.deepEqual(inheritProxyServerNameserver(src, FALLBACK), FALLBACK);
+});
+
+test("inheritProxyServerNameserver: 自包含，可经 toString 内联到脚本", () => {
+  const fn = new Function(`${inheritProxyServerNameserver.toString()}; return inheritProxyServerNameserver;`)();
+  const src = { nameserver: ["https://zone.rlose.com:39933/api-query"] };
+  assert.deepEqual(fn(src, FALLBACK), src.nameserver);
 });
