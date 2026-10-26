@@ -22,8 +22,10 @@ test("buildDnsSection: 返回 dns/sniffer/tun/ruleProviders/ipv6 五段", () => 
 test("buildDnsSection: direct-nameserver 保持国内 DoH", () => {
   const { dns } = buildDnsSection({});
   assert.deepEqual(dns["direct-nameserver"], [
-    "https://dns.alidns.com/dns-query",
-    "https://doh.pub/dns-query",
+    "https://223.5.5.5/dns-query",
+    "https://223.6.6.6/dns-query",
+    "https://1.12.12.12/dns-query",
+    "https://120.53.53.53/dns-query",
   ]);
 });
 
@@ -71,8 +73,10 @@ test("buildDnsSection: 无 AI 规则且关闭收敛表时 policy 只有 geosite:
   const { dns } = buildDnsSection({ dnsPolicyCollapse: [] });
   assert.deepEqual(Object.keys(dns["nameserver-policy"]), ["geosite:cn"]);
   assert.deepEqual(dns["nameserver-policy"]["geosite:cn"], [
-    "https://dns.alidns.com/dns-query",
-    "https://doh.pub/dns-query",
+    "https://223.5.5.5/dns-query",
+    "https://223.6.6.6/dns-query",
+    "https://1.12.12.12/dns-query",
+    "https://120.53.53.53/dns-query",
   ]);
 });
 
@@ -195,15 +199,24 @@ test("buildDnsSection: 同级独立顶级域不会被误收敛", () => {
 test("buildDnsSection: proxy-server-nameserver 用国内 DoH，保证直连必达", () => {
   const { dns } = buildDnsSection({});
   assert.deepEqual(dns["proxy-server-nameserver"], [
-    "https://dns.alidns.com/dns-query",
-    "https://doh.pub/dns-query",
+    "https://223.5.5.5/dns-query",
+    "https://223.6.6.6/dns-query",
+    "https://1.12.12.12/dns-query",
+    "https://120.53.53.53/dns-query",
   ]);
+});
+
+test("buildDnsSection: 国内 DoH 全部是纯 IP，不依赖 bootstrap 解析", () => {
+  const { dns } = buildDnsSection({});
+  const ipDoh = /^https:\/\/\d+\.\d+\.\d+\.\d+\/dns-query$/;
+  [...dns["direct-nameserver"], ...dns["proxy-server-nameserver"]].forEach((s) =>
+    assert.ok(ipDoh.test(s), `应为纯 IP DoH: ${s}`));
 });
 
 test("buildDnsSection: default-nameserver 以国内 IP 打头", () => {
   const { dns } = buildDnsSection({});
   const ns = dns["default-nameserver"];
-  assert.equal(ns[0], "223.5.5.5", "首选国内 IP，用于解析上面两个 DoH 域名");
+  assert.equal(ns[0], "223.5.5.5", "首选国内 IP");
   assert.ok(ns.every((s) => /^\d+\.\d+\.\d+\.\d+$/.test(s)), "必须全部是纯 IP，不能是需要再解析的域名");
 });
 
@@ -253,8 +266,10 @@ test("buildDnsSection: 只有 AI policy 走国外，且经 AI 总出口发出", 
   const policy = dns["nameserver-policy"];
   assert.deepEqual(policy["+.claude.ai"], ["https://1.1.1.1/dns-query#AI 总出口"]);
   assert.deepEqual(policy["geosite:cn"], [
-    "https://dns.alidns.com/dns-query",
-    "https://doh.pub/dns-query",
+    "https://223.5.5.5/dns-query",
+    "https://223.6.6.6/dns-query",
+    "https://1.12.12.12/dns-query",
+    "https://120.53.53.53/dns-query",
   ]);
 });
 
