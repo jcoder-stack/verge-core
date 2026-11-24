@@ -249,7 +249,7 @@ IP-CIDR6,2607:6bc0::/32,no-resolve
 IP-ASN,399358,no-resolve
 
 # ===== Google AI / Gemini =====
-# 只列 AI 专属域名；google.com / googleapis.com 等通用域名不走 AI 出口，避免搜索、YouTube 等大流量占用住宅 IP
+# 不整体放行 google.com / googleapis.com 等通用域名，避免 YouTube、下载等大流量占用住宅 IP
 DOMAIN-SUFFIX,gemini.google.com
 DOMAIN-SUFFIX,gemini.google
 DOMAIN-SUFFIX,bard.google.com
@@ -264,6 +264,18 @@ DOMAIN-SUFFIX,geller-pa.googleapis.com
 DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com
 DOMAIN-SUFFIX,robinfrontend-pa.googleapis.com
 GEOSITE,google-deepmind
+
+# Gemini 页面依赖（登录 / 账号栏 / 风控校验 / 上报），与主站同出口，避免同账号跨地区
+# 代价：Google 搜索与全部 Google 登录、以及各网站的 GA / GTM 请求也会走住宅；不需要可删本段
+DOMAIN,accounts.google.com
+DOMAIN,www.google.com
+DOMAIN,play.google.com
+DOMAIN,apis.google.com
+DOMAIN,ogs.google.com
+DOMAIN,waa-pa.clients6.google.com
+DOMAIN,ogads-pa.clients6.google.com
+DOMAIN,www.google-analytics.com
+DOMAIN,www.googletagmanager.com
 
 # AI Studio / Gemini API
 DOMAIN-SUFFIX,aistudio.google.com
@@ -341,6 +353,18 @@ GEOSITE,category-ntp</textarea>
             同时启用 TUN 模式 + DNS 劫持（推荐，但需额外授权）
           </label>
           <div class="hint" style="margin-left:18px">不开 TUN 时，系统级应用（CLI、Docker、未走代理的 App）的 DNS 仍可能绕过本配置直接问运营商 → 防泄漏只能"半生效"（<strong>经代理的流量不受影响，仍然防住</strong>）。勾选后会在配置里写入 <code>tun.enable: true / dns-hijack: any:53 / auto-route: true</code>。<br /><strong>⚠️ Clash Verge 用户请注意</strong>：Verge 会用它自己「TUN 设置」里的值<strong>覆盖</strong>本配置的整个 <code>tun</code> 块，<code>tun.enable</code> 更是直接跟随 GUI 的 TUN 开关。<strong>所以在 Verge 里勾选本项并不会开启 TUN，你仍需去 Verge 界面自行打开</strong>（首次需管理员授权：macOS 允许系统扩展、Windows 安装 wintun）。本项写入的 tun 块只对<strong>自行管理 TUN 的宿主</strong>（ClashMi、裸 mihomo 内核）直接生效。TUN 可能与企业 VPN / Docker 网络冲突，按需使用。</div>
+
+          <label class="ck" style="margin-top:8px;margin-left:18px">
+            <input type="checkbox" id="dnsViaAiExit" />
+            普通境外域名的 DNS 也经 AI 总出口发出
+          </label>
+          <div class="hint" style="margin-left:18px">不勾选时按规则选出口，DNS 检测位置会随普通节点变化（不属于泄漏）。勾选后固定从住宅所在地查询，代价是<strong>解析变慢</strong>，且<strong>住宅断线时普通境外网站的解析也会受影响</strong>。AI 域名本来就经总出口解析，与本项无关。需启用总出口组且有住宅节点。</div>
+
+          <label class="ck" style="margin-top:10px">
+            <input type="checkbox" id="stunGuard" checked />
+            UDP / WebRTC 防泄漏（STUN 常用端口走 AI 出口）
+          </label>
+          <div class="hint">国内 STUN 命中订阅直连规则时，网页可经 WebRTC 拿到你的真实 IP，与 DNS 无关。勾选后 UDP 3478-3481 / 5349-5350 / 19302-19309 统一走 AI 出口；出口不支持 UDP 时直接拒绝，不回落直连。<strong>代价</strong>：使用这些端口的会议、语音软件会绕行住宅或无法连接。非常用端口的 STUN 不在覆盖范围；没有住宅出口时不生成。</div>
 
           <label style="margin-top:10px">DNS policy 收敛后缀（每行一个域名后缀，留空=用内置默认表）</label>
           <textarea id="dnsPolicyCollapse" rows="3" placeholder="azureedge.net&#10;blob.core.windows.net&#10;sentry.io"></textarea>

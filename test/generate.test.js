@@ -423,6 +423,24 @@ test("UI 默认 AI 规则：覆盖 Google AI 核心域名", () => {
   assert.ok(rules.includes("GEOSITE,google-deepmind"), "默认列表缺少 GEOSITE,google-deepmind");
 });
 
+test("UI 默认 AI 规则：Gemini 页面依赖的 Google 域名精确匹配走 AI 出口", () => {
+  const rules = uiDefaultAIRules();
+  [
+    "accounts.google.com",
+    "www.google.com",
+    "play.google.com",
+    "apis.google.com",
+    "ogs.google.com",
+    "waa-pa.clients6.google.com",
+    "ogads-pa.clients6.google.com",
+    "www.google-analytics.com",
+    "www.googletagmanager.com",
+  ].forEach((d) => {
+    assert.ok(rules.includes(`DOMAIN,${d}`), `默认列表缺少 DOMAIN,${d}`);
+    assert.ok(!rules.includes(`DOMAIN-SUFFIX,${d}`), `${d} 应精确匹配，不用 DOMAIN-SUFFIX`);
+  });
+});
+
 test("UI 默认 AI 规则：不把 Google 通用域名整体带进 AI 出口", () => {
   const rules = uiDefaultAIRules();
   ["google.com", "googleapis.com", "gstatic.com", "googleusercontent.com"].forEach((d) => {
@@ -557,5 +575,75 @@ function listenerFromScript(pm) {
   test(`${name}: 端口入口保留自定义监听地址`, () => {
     const l = run({ port: 1080, type: "socks", target: "DIRECT", address: "192.168.1.2" });
     assert.strictEqual(l.listen, "192.168.1.2");
+  });
+});
+
+// ---- STUN（WebRTC）防泄漏 / 普通域名 DNS 走 AI 总出口 ----
+
+const STUN_MATCH = "AND,((NETWORK,UDP),(DST-PORT,3478-3481/5349-5350/19302-19309))";
+
+function privacyOpts(over) {
+  return {
+    relay: { name: "高速中转", type: "select", proxies: ["vps1"] },
+    residentials: [{ name: "住宅-1", type: "socks5", server: "h", port: 1, udp: true }],
+    residentialGroup: "住宅节点",
+    directResidentialGroup: "直连住宅",
+    aiExitGroup: "AI 总出口",
+    aiRules: { target: "AI 总出口", domains: ["claude.ai"], providers: [] },
+    portMappings: [{ port: 1081, type: "socks", target: "住宅-1" }],
+    dnsAntiLeak: true,
+    ...over,
+  };
+}
+
+const PRIVACY_SRC = {
+  proxies: [{ name: "vps1", type: "socks5", server: "v", port: 1 }],
+  "proxy-groups": [],
+  rules: ["MATCH,DIRECT"],
+};
+
+const PRIVACY_PATHS = [
+  ["buildYaml", (o) => yaml.load(buildYaml({ srcYaml: yaml.dump(PRIVACY_SRC), ...o }))],
+  ["buildOverrideScript", (o) => vmRunHook(buildOverrideScript(o), JSON.parse(JSON.stringify(PRIVACY_SRC)))],
+];
+
+PRIVACY_PATHS.forEach(([name, run]) => {
+  test(`${name}: stunGuard 在 IN-PORT 之后、AI 规则之前写入，并以 REJECT 兜底`, () => {
+    const { rules } = run(privacyOpts({ stunGuard: true }));
+    // IN-PORT 优先：各端口映射的 UDP 须跟随自己的出口；
+    // REJECT 兜底：目标不支持 UDP（如 http 住宅）时 mihomo 会跳过规则继续匹配，不拦就会回落直连
+    assert.deepEqual(Array.from(rules), [
+      "IN-PORT,1081,住宅-1",
+      `${STUN_MATCH},AI 总出口`,
+      `${STUN_MATCH},REJECT`,
+      "DOMAIN-SUFFIX,claude.ai,AI 总出口",
+      "MATCH,DIRECT",
+    ]);
+  });
+
+  test(`${name}: 未开总出口时 stunGuard 用 AI 规则目标`, () => {
+    const { rules } = run(privacyOpts({
+      stunGuard: true, aiExitGroup: "", aiRules: { target: "住宅节点", domains: ["claude.ai"], providers: [] },
+    }));
+    assert.ok(Array.from(rules).includes(`${STUN_MATCH},住宅节点`));
+  });
+
+  test(`${name}: 无住宅出口或未开启时不写 STUN 规则`, () => {
+    const none = run(privacyOpts({ stunGuard: true, residentials: [], aiRules: null, portMappings: [] }));
+    const off = run(privacyOpts({}));
+    [none, off].forEach((r) => assert.ok(!Array.from(r.rules).some((x) => x.includes("DST-PORT"))));
+  });
+
+  test(`${name}: dnsViaAiExit 让兜底 nameserver 经 AI 总出口发出`, () => {
+    const { dns } = run(privacyOpts({ dnsViaAiExit: true }));
+    assert.deepEqual(Array.from(dns.nameserver), [
+      "https://1.1.1.1/dns-query#AI 总出口", "https://8.8.8.8/dns-query#AI 总出口",
+    ]);
+  });
+
+  test(`${name}: dnsViaAiExit 关闭或总出口无成员时仍用 #RULES`, () => {
+    const off = run(privacyOpts({}));
+    const none = run(privacyOpts({ dnsViaAiExit: true, residentials: [], aiRules: null, portMappings: [] }));
+    [off, none].forEach((r) => assert.ok(Array.from(r.dns.nameserver).every((x) => x.endsWith("#RULES"))));
   });
 });

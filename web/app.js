@@ -412,6 +412,8 @@ function collectGeneratePayload() {
       dnsAntiLeak: $("dnsAntiLeak").checked,
       dnsLan: $("dnsLan") ? $("dnsLan").checked : false,
       dnsTun: $("dnsTun") ? $("dnsTun").checked : false,
+      dnsViaAiExit: $("dnsViaAiExit") ? $("dnsViaAiExit").checked : false,
+      stunGuard: $("stunGuard") ? $("stunGuard").checked : false,
       // 留空 = 不传 = 用内置默认收敛表
       ...(dnsPolicyCollapse.length > 0 ? { dnsPolicyCollapse } : {}),
       portMappings,
