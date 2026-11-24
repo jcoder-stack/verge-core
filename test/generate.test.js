@@ -532,3 +532,30 @@ test("DNS 防泄漏：继承只动 proxy-server-nameserver，其余防泄漏字�
   assert.deepStrictEqual(y.dns["nameserver-policy"], ref["nameserver-policy"]);
 });
 
+
+// ---- 端口入口监听地址 ----
+// mihomo 的 listener 只认 listen 字段；写成 address 会被静默忽略并退回监听所有网卡，
+// 等于在局域网上开了一个无密码代理。
+
+function listenerFromYaml(pm) {
+  const out = buildYaml({ srcYaml: "proxies: []\nproxy-groups: []\nrules: []\n", portMappings: [pm] });
+  return yaml.load(out).listeners[0];
+}
+
+function listenerFromScript(pm) {
+  const script = buildOverrideScript({ portMappings: [pm] });
+  return vmRunHook(script, { proxies: [], "proxy-groups": [], rules: [] }).listeners[0];
+}
+
+[["buildYaml", listenerFromYaml], ["buildOverrideScript", listenerFromScript]].forEach(([name, run]) => {
+  test(`${name}: 端口入口默认只监听本机，用 listen 字段`, () => {
+    const l = run({ port: 1080, type: "socks", target: "DIRECT" });
+    assert.strictEqual(l.listen, "127.0.0.1");
+    assert.strictEqual(l.address, undefined, "address 不是 mihomo 的有效字段");
+  });
+
+  test(`${name}: 端口入口保留自定义监听地址`, () => {
+    const l = run({ port: 1080, type: "socks", target: "DIRECT", address: "192.168.1.2" });
+    assert.strictEqual(l.listen, "192.168.1.2");
+  });
+});
