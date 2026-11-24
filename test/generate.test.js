@@ -411,6 +411,26 @@ test("UI 默认 AI 规则：覆盖 OpenAI 与 Anthropic 两条线的核心域名
   });
 });
 
+test("UI 默认 AI 规则：覆盖 Google AI 核心域名", () => {
+  const rules = uiDefaultAIRules();
+  [
+    "gemini.google.com", "aistudio.google.com", "notebooklm.google.com", "labs.google",
+    "generativelanguage.googleapis.com", "aiplatform.googleapis.com", "antigravity.google",
+  ].forEach((d) => {
+    assert.ok(rules.includes(`DOMAIN-SUFFIX,${d}`), `默认列表缺少 DOMAIN-SUFFIX,${d}`);
+  });
+  assert.ok(rules.includes("DOMAIN,cloudcode-pa.googleapis.com"), "默认列表缺少 Code Assist 后端");
+  assert.ok(rules.includes("GEOSITE,google-deepmind"), "默认列表缺少 GEOSITE,google-deepmind");
+});
+
+test("UI 默认 AI 规则：不把 Google 通用域名整体带进 AI 出口", () => {
+  const rules = uiDefaultAIRules();
+  ["google.com", "googleapis.com", "gstatic.com", "googleusercontent.com"].forEach((d) => {
+    assert.ok(!rules.includes(`DOMAIN-SUFFIX,${d}`), `不应包含 DOMAIN-SUFFIX,${d}`);
+  });
+  assert.ok(!rules.includes("GEOSITE,google"), "不应包含 GEOSITE,google");
+});
+
 test("UI 默认 AI 规则：无重复行", () => {
   const rules = uiDefaultAIRules();
   const dup = rules.filter((r, i) => rules.indexOf(r) !== i);

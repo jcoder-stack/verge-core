@@ -248,6 +248,74 @@ IP-CIDR,160.79.104.0/21,no-resolve
 IP-CIDR6,2607:6bc0::/32,no-resolve
 IP-ASN,399358,no-resolve
 
+# ===== Google AI / Gemini =====
+# 只列 AI 专属域名；google.com / googleapis.com 等通用域名不走 AI 出口，避免搜索、YouTube 等大流量占用住宅 IP
+DOMAIN-SUFFIX,gemini.google.com
+DOMAIN-SUFFIX,gemini.google
+DOMAIN-SUFFIX,bard.google.com
+DOMAIN-SUFFIX,gemini.gstatic.com
+DOMAIN-SUFFIX,deepmind.com
+DOMAIN-SUFFIX,deepmind.google
+DOMAIN-SUFFIX,generativeai.google
+DOMAIN-SUFFIX,gemma.ai
+DOMAIN,geminiweb-pa.clients.google.com
+DOMAIN,geminiweb-pa.clients6.google.com
+DOMAIN-SUFFIX,geller-pa.googleapis.com
+DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com
+DOMAIN-SUFFIX,robinfrontend-pa.googleapis.com
+GEOSITE,google-deepmind
+
+# AI Studio / Gemini API
+DOMAIN-SUFFIX,aistudio.google.com
+DOMAIN-SUFFIX,ai.studio
+DOMAIN-SUFFIX,makersuite.google.com
+DOMAIN-SUFFIX,generativelanguage.googleapis.com
+DOMAIN,ai.google.dev
+DOMAIN,alkalicore-pa.clients6.google.com
+DOMAIN,alkalimakersuite-pa.clients6.google.com
+DOMAIN,webchannel-alkalimakersuite-pa.clients6.google.com
+
+# Vertex AI（区域端点形如 us-central1-aiplatform.googleapis.com，非子域，需 KEYWORD）
+DOMAIN-SUFFIX,aiplatform.googleapis.com
+DOMAIN-KEYWORD,-aiplatform.googleapis.com
+
+# Gemini CLI / Code Assist / Android Studio
+DOMAIN,cloudcode-pa.googleapis.com
+DOMAIN,daily-cloudcode-pa.googleapis.com
+DOMAIN,cloudaicompanion.googleapis.com
+DOMAIN-SUFFIX,aicode.googleapis.com
+DOMAIN-SUFFIX,aida.googleapis.com
+
+# Antigravity / Jules / Stitch / Opal
+DOMAIN-SUFFIX,antigravity.google
+DOMAIN-SUFFIX,antigravity-unleash.goog
+DOMAIN,antigravity.googleapis.com
+DOMAIN,antigravity-pa.googleapis.com
+DOMAIN-SUFFIX,jules.google
+DOMAIN-SUFFIX,jules.google.com
+DOMAIN-SUFFIX,stitch.withgoogle.com
+DOMAIN-SUFFIX,opal.google
+DOMAIN-SUFFIX,opal.google.com
+
+# NotebookLM / Labs / Flow
+DOMAIN-SUFFIX,notebooklm.google.com
+DOMAIN-SUFFIX,notebooklm.google
+DOMAIN-SUFFIX,notebook.google.com
+DOMAIN-SUFFIX,notebook.google
+DOMAIN-SUFFIX,labstailwind.pa.googleapis.com
+DOMAIN,notebooklm.googleapis.com
+DOMAIN,notebooklm-pa.googleapis.com
+DOMAIN-SUFFIX,labs.google
+DOMAIN-SUFFIX,labs.google.com
+DOMAIN-SUFFIX,flow.google
+DOMAIN-SUFFIX,flow.google.com
+DOMAIN-SUFFIX,aisandbox-pa.googleapis.com
+
+# Workspace 内的 Gemini（Gmail / Docs / Drive 侧边栏）
+DOMAIN,appsgenaiserver-pa.clients.google.com
+DOMAIN,appsgenaiserver-pa.clients6.google.com
+DOMAIN,appsgenaiserver-pa.googleapis.com
+
 # 时间同步（避免本地时钟偏差导致鉴权失败）
 GEOSITE,category-ntp</textarea>
           <div class="hint">支持：<code>DOMAIN</code> / <code>DOMAIN-SUFFIX</code> / <code>DOMAIN-KEYWORD</code> / <code>IP-CIDR</code> / <code>IP-CIDR6</code> / <code>IP-ASN</code> 等；末尾修饰符（如 <code>no-resolve</code>）会被保留。目标名由生成器自动插入到 <code>matcher</code> 之后。</div>
